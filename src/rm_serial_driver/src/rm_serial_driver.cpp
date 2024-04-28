@@ -32,7 +32,7 @@ RMSerialDriver::RMSerialDriver(const rclcpp::NodeOptions & options)
   getParams();
 
   // Create Publisher
-  to_decision_pub_ = this->create_publisher<rm_decision_interfaces::msg::FromSerial>("judge", 10);
+  to_decision_pub_ = this->create_publisher<rm_decision_interfaces::msg::FromSerial>("fromjudge", 10);
 
 
 
@@ -150,7 +150,8 @@ void RMSerialDriver::receiveData()
                         msg.blue_outpost_hp = packet.blue_outpost_HP;
                         msg.blue_base_hp = packet.blue_base_HP;
 
-                      std::cout<< "good "<< std::endl;
+                      std::cout<< "received from serial successfully "<< std::endl;
+                      to_decision_pub_->publish(msg);
                       }
                       else
                       {

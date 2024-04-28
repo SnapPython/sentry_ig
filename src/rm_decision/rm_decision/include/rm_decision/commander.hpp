@@ -203,7 +203,7 @@ public:
   
   uint enemy_outpost_hp;
   uint enemy_base_hp = 1500;
-  bool color; //true 为蓝
+
   int enemy_num = 0;
   uint enemyhp();
   double time = 500.0;
@@ -217,24 +217,31 @@ public:
 
 
   //for bt 
+  int color; //true 为蓝
+  bool gamestart = false;
   bool dafu = false;
   bool outpose = false;
   bool base = false;
   float self_hp = 400;
   float self_ammo = 400;
   float self_base = 400;
+  float self_outpost = 400;
   int nav_state;  //1 for SUCCEEDED 2 for ABORTED 3 for CANCELED 4 for RUNNING
   bool order = false; //用于巡逻模式，详情见飞书
+  float goldcoin;
+  int buy_ammo;
+
   private:
   
   rclcpp_action::Client<nav2_msgs::action::NavigateToPose>::SharedPtr nav_to_pose_client;
 
   void decision();
   void executor();
+  void self_cmd();
   void setState(std::shared_ptr<State> state);
   void loadNavPoints();
   void aim_callback(const auto_aim_interfaces::msg::Target::SharedPtr msg);
-  void nav_callback(const rm_decision_interfaces::msg::FromSerial::SharedPtr msg);
+  void serial_callback(const rm_decision_interfaces::msg::FromSerial::SharedPtr msg);
   void enemypose_callback(const geometry_msgs::msg::PointStamped::SharedPtr msg);
   void laserScanCallback(const sensor_msgs::msg::LaserScan::SharedPtr scan);
   // void cmd;
@@ -251,6 +258,7 @@ public:
 
   std::thread commander_thread_;
   std::thread executor_thread_;
+  std::thread self_cmd_thread_; 
 
   std::shared_ptr<tf2_ros::Buffer> tf2_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf2_listener_;

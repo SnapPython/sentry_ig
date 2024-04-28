@@ -58,7 +58,7 @@ namespace rm_decision
       currentState = std::make_shared<WaitState>(this);
 
       nav_sub_ = this->create_subscription<rm_decision_interfaces::msg::FromSerial>(
-         "/nav/sub", 10, std::bind(&Commander::nav_callback, this, std::placeholders::_1));
+         "fromjudge", 10, std::bind(&Commander::serial_callback, this, std::placeholders::_1));
       aim_sub_ = this->create_subscription<auto_aim_interfaces::msg::Target>(
          "/tracker/target", rclcpp::SensorDataQoS(),std::bind(&Commander::aim_callback, this, std::placeholders::_1));
       enemypose_sub_ = this->create_subscription<geometry_msgs::msg::PointStamped>(
@@ -70,6 +70,7 @@ namespace rm_decision
       // 创建线程（处理信息和发布命令）
       commander_thread_ = std::thread(&Commander::decision, this);
       executor_thread_ = std::thread(&Commander::executor, this);
+      self_cmd_thread_ = std::thread(&Commander::self_cmd, this);
    }
    // 析构函数
    Commander::~Commander(){
@@ -115,7 +116,19 @@ namespace rm_decision
       { 
          std::cout << "behavetree is working now" << std::endl;
          tree.tickWhileRunning();
-          r.sleep();
+         r.sleep();
+         if(dafu){
+            std::thread([this] {
+            std::this_thread::sleep_for(std::chrono::minutes(1));
+            std::cout << "dafu is set to false" << std::endl;
+            dafu = false;}).detach();
+            }
+         if(outpose){
+            std::thread([this] {
+            std::this_thread::sleep_for(std::chrono::minutes(1));
+            std::cout << "outpose is set to false" << std::endl;
+            outpose = false;}).detach();
+            }
       }
 
    }
@@ -133,10 +146,16 @@ namespace rm_decision
       }
    }
 
-   // 发布命令线程 还没写好
-   // void Commander::cmd(){
-   //    // sentry_cmd_pub_->publish(packet);
-   // }
+
+    void Commander::self_cmd(){
+      rm_decision_interfaces::msg::ToSerial msg;
+      msg.sentry_cmd = 0x00;
+      // msg.sentry_cmd |= (1 << 0); set one bit to 1
+      // msg.sentry_cmd &= ~(1 << 1);      set one bit to 0
+      assert(buy_ammo < (1 << 11));
+      msg.sentry_cmd |= (buy_ammo << 2);
+   
+    }
 
    // 改变状态
    void Commander::setState(std::shared_ptr<State> state) {
@@ -264,51 +283,34 @@ namespace rm_decision
 
    
    // 订阅回调
-   void Commander::nav_callback(const rm_decision_interfaces::msg::FromSerial::SharedPtr msg) {
-      // if(msg->color == 1){
-      //    enemy_1.hp = msg->red_1;
-      //    enemy_2.hp = msg->red_2;
-      //    enemy_3.hp = msg->red_3;
-      //    enemy_4.hp = msg->red_4;
-      //    enemy_5.hp = msg->red_5;
-      //    enemy_7.hp = msg->red_7;
-      //    enemy_outpost_hp = msg->red_outpost_hp;
-      //    enemy_base_hp = msg->red_base_hp;
-      //    self_1.hp = msg->blue_1;
-      //    self_2.hp = msg->blue_2;
-      //    self_3.hp = msg->blue_3;
-      //    self_4.hp = msg->blue_4;
-      //    self_5.hp = msg->blue_5;
-      //    self_7.hp = msg->blue_7;
-      //    self_outpost_hp = msg->blue_outpost_hp;
-      //    self_base_hp = msg->blue_base_hp;
-      // }
-      // else{
-      //    self_1.hp = msg->red_1;
-      //    self_2.hp = msg->red_2;
-      //    self_3.hp = msg->red_3;
-      //    self_4.hp = msg->red_4;
-      //    self_5.hp = msg->red_5;
-      //    self_7.hp = msg->red_7;
-      //    self_outpost_hp = msg->red_outpost_hp;
-      //    self_base_hp = msg->red_base_hp;
-      //    enemy_1.hp = msg->blue_1;
-      //    enemy_2.hp = msg->blue_2;
-      //    enemy_3.hp = msg->blue_3;
-      //    enemy_4.hp = msg->blue_4;
-      //    enemy_5.hp = msg->blue_5;
-      //    enemy_7.hp = msg->blue_7;
-      //    enemy_outpost_hp = msg->blue_outpost_hp;
-      //    enemy_base_hp = msg->blue_base_hp;
-      // }
-      // packet.game_progress = msg->game_progress;
-      // self_7.hp = msg->self_hp;
-      // enemy_base_hp = msg->base_hp;
-      // time =300 - msg->time;
-      // packet.rfid_status = msg->rfid_status;
-      // event_data = msg->event_data;
-      // packet.supply_robot_id = msg->supply_robot_id;
-      // packet.supply_projectile_num = msg->supply_projectile_num;
+   void Commander::serial_callback(const rm_decision_interfaces::msg::FromSerial::SharedPtr msg) {
+      gamestart = msg->gamestart;
+      color = msg->color;
+      self_ammo = msg->projectile_allowance_17mm;
+      goldcoin = msg->remaining_gold_coin;
+
+      if(msg->color == 1){
+         self_hp = msg->red_7;
+         self_base = msg->red_base_hp;
+         self_outpost = msg->red_outpost_hp;
+      }
+      else{
+         self_hp = msg->blue_7;
+         self_base = msg->blue_base_hp;
+         self_outpost = msg->blue_outpost_hp;
+      }
+
+      if(msg->supply_robot_id == 4){
+         if(msg->supply_projectile_num == 50){
+            outpose = true;
+         }
+         if (msg->supply_projectile_num == 100){
+            dafu = true;
+         }
+         if(msg->supply_projectile_num == 200){
+            base = true;
+         }
+      }
    }
 
    void Commander::aim_callback(const auto_aim_interfaces::msg::Target::SharedPtr msg) {
