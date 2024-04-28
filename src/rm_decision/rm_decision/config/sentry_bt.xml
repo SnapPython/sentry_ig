@@ -3,6 +3,7 @@
       main_tree_to_execute="main">
   <BehaviorTree ID="main">
     <Fallback>
+      <wait_for_start/>
       <Sequence>
         <dafu_ordered/>
         <dafu_handle/>
@@ -66,6 +67,8 @@
     <Action ID="outpose_handle"
             editable="true"/>
     <Condition ID="outpose_ordered"
+               editable="true"/>
+    <Condition ID="wait_for_start"
                editable="true"/>
   </TreeNodesModel>
 

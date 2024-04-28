@@ -230,6 +230,7 @@ public:
   bool order = false; //用于巡逻模式，详情见飞书
   float goldcoin;
   int buy_ammo;
+  int buy_hp = 0;
 
   private:
   
@@ -350,6 +351,15 @@ public:
     void myMoveAround_handle(){
         std::cout << "MoveAround_handle is called" << std::endl;
         setState(std::make_shared<MoveState>(this));
+    }
+
+    BT::NodeStatus wait_for_start(){
+        if (gamestart) {
+          return BT::NodeStatus::FAILURE;
+        }
+        else {
+          return BT::NodeStatus::SUCCESS;
+        }
     }
 
     BT::NodeStatus dafu_ordered(){

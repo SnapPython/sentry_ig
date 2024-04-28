@@ -92,6 +92,7 @@ namespace rm_decision
         rclcpp::Rate r(5);
         // behavetree init
         BT::BehaviorTreeFactory factory;
+        factory.registerSimpleCondition("wait_for_start", std::bind(&Commander::wait_for_start, this));
         factory.registerSimpleCondition("dafu_ordered", std::bind(&Commander::dafu_ordered, this));
         factory.registerSimpleCondition("outpose_ordered", std::bind(&Commander::outpose_ordered, this));
         factory.registerSimpleCondition("base_ordered", std::bind(&Commander::base_ordered, this));
@@ -146,14 +147,49 @@ namespace rm_decision
       }
    }
 
-
+   // 发布命令线程
     void Commander::self_cmd(){
+      rclcpp::Rate r(1);
       rm_decision_interfaces::msg::ToSerial msg;
-      msg.sentry_cmd = 0x00;
       // msg.sentry_cmd |= (1 << 0); set one bit to 1
-      // msg.sentry_cmd &= ~(1 << 1);      set one bit to 0
-      assert(buy_ammo < (1 << 11));
-      msg.sentry_cmd |= (buy_ammo << 2);
+      // msg.sentry_cmd &= ~(1 << 0);      set one bit to 0
+
+
+      while(rclcpp::ok()){
+         if(self_hp == 0){
+            msg.sentry_cmd |= (1 << 0);
+         }
+         if(self_hp == 0 && goldcoin > 500){
+            msg.sentry_cmd |= (1 << 1);
+         }
+         if(self_ammo < 50 && goldcoin > 500){
+            buy_ammo = 200;
+            for (int i = 2; i <= 12; ++i) {
+            msg.sentry_cmd &= ~(1 << i);
+            }
+            msg.sentry_cmd |= (buy_ammo << 2);
+         }
+         if(self_ammo < 50 && goldcoin < 300 && goldcoin > 100){
+            buy_ammo = 100;
+            for (int i = 2; i <= 12; ++i) {
+            msg.sentry_cmd &= ~(1 << i);
+            }
+            msg.sentry_cmd |= (buy_ammo << 2);
+         }
+         if(self_ammo < 50 && goldcoin < 150 && goldcoin > 50){
+            buy_ammo = 50;
+            for (int i = 2; i <= 12; ++i) {
+            msg.sentry_cmd &= ~(1 << i);
+            }
+            msg.sentry_cmd |= (buy_ammo << 2);
+         }
+         if(self_hp < 100 && goldcoin > 300){
+            buy_hp ++;
+            msg.sentry_cmd |= (buy_hp << 17);
+         }
+         sentry_cmd_pub_->publish(msg);
+         r.sleep();
+      }
    
     }
 
