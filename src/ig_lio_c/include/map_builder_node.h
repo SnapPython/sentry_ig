@@ -414,11 +414,11 @@ namespace IG_LIO
 
         void setRate(double rate)
         {
-            rate_ = std::make_shared<rclcpp::Rate>(rate);
+            icp_rate_ = std::make_shared<rclcpp::Rate>(rate);
         }
         void setRate(std::shared_ptr<rclcpp::Rate> rate)
         {
-            rate_ = rate;
+            icp_rate_ = rate;
         }
         void setLocalizer(std::shared_ptr<IG_LIO::IcpLocalizer> localizer)
         {
@@ -428,7 +428,7 @@ namespace IG_LIO
         void operator()()
         {
             current_cloud_.reset(new pcl::PointCloud<pcl::PointXYZI>);
-
+            rate_ = std::make_shared<rclcpp::Rate>(5.0);
             while (is_alive)
             {
                 rate_->sleep();
@@ -459,6 +459,7 @@ namespace IG_LIO
 
                 if (shared_data_->localizer_service_called)
                 {
+                    rate_ = std::make_shared<rclcpp::Rate>(5.0);
                     std::lock_guard<std::mutex> lock(shared_data_->service_mutex);
                     icp_localizer_->init(shared_data_->map_path, false);
                     gloabl_pose_ = icp_localizer_->multi_align_sync(current_cloud_, shared_data_->initial_guess);
@@ -483,6 +484,7 @@ namespace IG_LIO
                 {
                     gloabl_pose_ = icp_localizer_->align(current_cloud_, init_guess);
                     if (icp_localizer_->isSuccess()){
+                        rate_=icp_rate_;
                         rectify = true;
                         RCLCPP_INFO(rclcpp::get_logger("localizer"), "Localizer success");
                     }
@@ -512,6 +514,7 @@ namespace IG_LIO
         std::shared_ptr<SharedData> shared_data_;
         std::shared_ptr<IG_LIO::IcpLocalizer> icp_localizer_;
         std::shared_ptr<rclcpp::Rate> rate_;
+        std::shared_ptr<rclcpp::Rate> icp_rate_;
         pcl::PointCloud<pcl::PointXYZI>::Ptr current_cloud_;
         Eigen::Matrix4d gloabl_pose_;
         Eigen::Matrix3d local_rot_;
