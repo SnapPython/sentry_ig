@@ -31,6 +31,7 @@
 
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include <geometry_msgs/msg/twist.hpp>
+#include "packet.hpp"
 
 
 namespace rm_serial_driver
@@ -51,6 +52,8 @@ private:
 
   void decisionSendData(const rm_decision_interfaces::msg::ToSerial::SharedPtr msg);
 
+  void sendData();
+
   void reopenPort();
 
   // Serial port
@@ -65,8 +68,11 @@ private:
   rclcpp::Publisher<rm_decision_interfaces::msg::FromSerial>::SharedPtr to_decision_pub_;
 
   std::thread receive_thread_;
+  std::thread send_thread_;
 
   int closecount=0;
+  bool receive_flag=true;
+  SendPacket packet;
 };
 }  // namespace rm_serial_driver
 

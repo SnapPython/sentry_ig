@@ -41,6 +41,7 @@ RMSerialDriver::RMSerialDriver(const rclcpp::NodeOptions & options)
     if (!serial_driver_->port()->is_open()) {
       serial_driver_->port()->open();
       receive_thread_ = std::thread(&RMSerialDriver::receiveData, this);
+      send_thread_ = std::thread(&RMSerialDriver::sendData, this);
       closecount++;
       //std::cout << "count : " << closecount << std::endl; 
       if(closecount == 10)
@@ -79,6 +80,11 @@ RMSerialDriver::~RMSerialDriver()
     receive_thread_.join();
   }
 
+  if (send_thread_.joinable())
+  {
+    send_thread_.join();
+  }
+
   if (serial_driver_->port()->is_open()) {
     serial_driver_->port()->close();
   }
@@ -101,6 +107,10 @@ void RMSerialDriver::receiveData()
   uint16_t CRC_check = 0x0000;
 
   while (rclcpp::ok()) {
+    if(!receive_flag){
+      return;
+    }
+    else{
       try {
           // 这一行从串行端口接收一个字节的数据，将其存储在 header 向量中
       serial_driver_->port()->receive(header);
@@ -175,18 +185,44 @@ void RMSerialDriver::receiveData()
               get_logger(), *get_clock(), 20, "Error while receiving data: %s", ex.what());
           reopenPort();
       }
+      receive_flag = false;
+    }
   }
 
+}
+
+void RMSerialDriver::sendData()
+{
+  uint16_t CRC_check = 0x0000;
+  uint16_t CRC16_init = 0xFFFF;
+  while (rclcpp::ok()) {
+    if(receive_flag){
+      return;
+    }
+    else{
+      try {
+        CRC_check = crc16::Get_CRC16_Check_Sum(reinterpret_cast<uint8_t *>(&packet), sizeof(packet) - 2, CRC16_init);
+
+        // std::cout << "CRC_check: " << CRC_check << std::endl;
+
+        packet.checksum = CRC_check;
+
+        std::vector<uint8_t> data = toVector(packet);
+
+        serial_driver_->port()->send(data);
+        rclcpp::sleep_for(std::chrono::milliseconds(100));
+      } catch (const std::exception & ex) {
+        RCLCPP_ERROR(get_logger(), "Error while sending data: %s", ex.what());
+        reopenPort();
+      }
+    }
+  }
 }
 
 void RMSerialDriver::navSendData(const geometry_msgs::msg::Twist& cmd_vel)
 {
 
-  try {
-    uint16_t CRC_check = 0x0000;
-    uint16_t CRC16_init = 0xFFFF;
 
-    SendPacket packet;
     packet.header = 0xA5;
     packet.naving = true;
     packet.nav_x = -cmd_vel.linear.y*2000;
@@ -194,50 +230,14 @@ void RMSerialDriver::navSendData(const geometry_msgs::msg::Twist& cmd_vel)
     
     //crc16::Append_CRC16_Check_Sum(reinterpret_cast<uint8_t *>(&packet), sizeof(packet));
 
-    CRC_check = crc16::Get_CRC16_Check_Sum(reinterpret_cast<uint8_t *>(&packet), sizeof(packet) - 2, CRC16_init);
-
-    //std::cout << "CRC_check: " << CRC_check << std::endl;
-
-    packet.checksum = CRC_check;
-
-    std::vector<uint8_t> data = toVector(packet);
-
-    serial_driver_->port()->send(data);
-    
-  } catch (const std::exception & ex) {
-    RCLCPP_ERROR(get_logger(), "Error while sending data: %s", ex.what());
-    reopenPort();
-  }
 }
 
 void RMSerialDriver::decisionSendData(const rm_decision_interfaces::msg::ToSerial::SharedPtr msg)
 {
-
-  try {
-    uint16_t CRC_check = 0x0000;
-    uint16_t CRC16_init = 0xFFFF;
-
-    SendPacket packet;
     packet.header = 0xA5;
-    packet.naving = false;
     packet.sentry_cmd = msg->sentry_cmd;
     
     //crc16::Append_CRC16_Check_Sum(reinterpret_cast<uint8_t *>(&packet), sizeof(packet));
-
-    CRC_check = crc16::Get_CRC16_Check_Sum(reinterpret_cast<uint8_t *>(&packet), sizeof(packet) - 2, CRC16_init);
-
-    //std::cout << "CRC_check: " << CRC_check << std::endl;
-
-    packet.checksum = CRC_check;
-
-    std::vector<uint8_t> data = toVector(packet);
-
-    serial_driver_->port()->send(data);
-    
-  } catch (const std::exception & ex) {
-    RCLCPP_ERROR(get_logger(), "Error while sending data: %s", ex.what());
-    reopenPort();
-  }
 }
 
 void RMSerialDriver::getParams()
