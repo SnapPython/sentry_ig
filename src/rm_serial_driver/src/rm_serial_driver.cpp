@@ -215,6 +215,7 @@ void RMSerialDriver::sendData()
         RCLCPP_ERROR(get_logger(), "Error while sending data: %s", ex.what());
         reopenPort();
       }
+      receive_flag = true;
     }
   }
 }
