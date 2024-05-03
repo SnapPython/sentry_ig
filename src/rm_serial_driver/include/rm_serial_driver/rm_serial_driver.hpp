@@ -42,6 +42,8 @@ public:
   explicit RMSerialDriver(const rclcpp::NodeOptions & options);
 
   ~RMSerialDriver() override;
+  bool receive_flag=true;
+  SendPacket sendpacket;
 
 private:
   void getParams();
@@ -71,8 +73,7 @@ private:
   std::thread send_thread_;
 
   int closecount=0;
-  bool receive_flag=true;
-  SendPacket packet;
+  
 };
 }  // namespace rm_serial_driver
 
