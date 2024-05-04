@@ -39,8 +39,9 @@ struct SendPacket
 {
   uint8_t header = 0xA5;
    
-  bool naving; 
-  
+  bool naving;
+  bool shangpo;
+
   float nav_x;
   float nav_y;
   uint32_t sentry_cmd;  //哨兵发给裁判系统的自主决策命令，如选择复活，买弹等，见裁判系统
