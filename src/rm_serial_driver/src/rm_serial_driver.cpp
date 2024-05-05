@@ -200,6 +200,9 @@ void RMSerialDriver::sendData()
       try {
         uint16_t CRC_check = 0x0000;
         uint16_t CRC16_init = 0xFFFF;
+        //sendpacket.nav_x = 1000;
+        sendpacket.shangpo = true;
+        //sendpacket.naving = true;
         CRC_check = crc16::Get_CRC16_Check_Sum(reinterpret_cast<uint8_t *>(&sendpacket), sizeof(sendpacket) - 2, CRC16_init);
 
         //std::cout << "CRC_check: " << CRC_check << std::endl;
@@ -226,8 +229,9 @@ void RMSerialDriver::navSendData(const geometry_msgs::msg::Twist& cmd_vel)
 
     sendpacket.header = 0xA5;
     sendpacket.naving = true;
-    sendpacket.nav_x = -cmd_vel.linear.y*2000;
-    sendpacket.nav_y = cmd_vel.linear.x*2000;
+    sendpacket.nav_x = -cmd_vel.linear.y*5000;
+    sendpacket.nav_y = cmd_vel.linear.x*5000;
+    std::cout << sendpacket.nav_x << sendpacket.nav_y <<std::endl;
     
     //crc16::Append_CRC16_Check_Sum(reinterpret_cast<uint8_t *>(&sendpacket), sizeof(sendpacket));
 

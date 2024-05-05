@@ -5,6 +5,7 @@
 #include <pcl/io/ply_io.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/point_cloud.h>
+#include <pcl/filters/statistical_outlier_removal.h>
 #include <rclcpp/qos.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
@@ -129,8 +130,15 @@ void SegmentationNode::scanCallback(
   }
   auto ground_msg = std::make_shared<sensor_msgs::msg::PointCloud2>();
   auto obstacle_msg = std::make_shared<sensor_msgs::msg::PointCloud2>();
+  pcl::PointCloud<pcl::PointXYZ>::Ptr pcl_cloud(new pcl::PointCloud<pcl::PointXYZ>);
+  *pcl_cloud = obstacle_cloud;
+  pcl::StatisticalOutlierRemoval<pcl::PointXYZ> sort;
+  sort.setInputCloud(pcl_cloud);
+  sort.setMeanK(50);
+  sort.setStddevMulThresh(1.5);
+  sort.filter(*pcl_cloud);
   pcl::toROSMsg(ground_cloud, *ground_msg);
-  pcl::toROSMsg(obstacle_cloud, *obstacle_msg);
+  pcl::toROSMsg(*pcl_cloud, *obstacle_msg);
   ground_msg->header = msg->header;
   obstacle_msg->header = msg->header;
   ground_pub_->publish(*ground_msg);

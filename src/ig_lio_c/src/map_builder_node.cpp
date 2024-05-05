@@ -357,40 +357,17 @@ namespace IG_LIO
     {
         if (body_cloud_pub_->get_subscription_count() == 0)
             return;
-
-        // Convert sensor_msgs::msg::PointCloud2 to pcl::PointCloud<pcl::PointXYZI>
-        pcl::PointCloud<pcl::PointXYZI>::Ptr pcl_cloud(new pcl::PointCloud<pcl::PointXYZI>);
-        pcl::fromROSMsg(cloud_to_pub, *pcl_cloud);
-
-        // Create the KdTree object for the search method of the extraction
-        pcl::search::KdTree<pcl::PointXYZI>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZI>);
-        tree->setInputCloud(pcl_cloud);
-
-        // Perform the DBSCAN clustering
-        std::vector<pcl::PointIndices> cluster_indices;
-        pcl::EuclideanClusterExtraction<pcl::PointXYZI> ec;
-        ec.setClusterTolerance(0.02); // Set the tolerance in meters (2cm)
-        ec.setMinClusterSize(100);
-        ec.setMaxClusterSize(25000);
-        ec.setSearchMethod(tree);
-        ec.setInputCloud(pcl_cloud);
-        ec.extract(cluster_indices);
-
-        // Publish each cluster as a separate PointCloud2 message
-        for (std::vector<pcl::PointIndices>::const_iterator it = cluster_indices.begin(); it != cluster_indices.end(); ++it)
-        {
-            pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_cluster(new pcl::PointCloud<pcl::PointXYZI>);
-            for (std::vector<int>::const_iterator pit = it->indices.begin(); pit != it->indices.end(); ++pit)
-                cloud_cluster->points.push_back(pcl_cloud->points[*pit]);
-            cloud_cluster->width = cloud_cluster->points.size();
-            cloud_cluster->height = 1;
-            cloud_cluster->is_dense = true;
-
-            // Convert pcl::PointCloud<pcl::PointXYZI> to sensor_msgs::msg::PointCloud2
-            pcl::toROSMsg(*cloud_cluster, cloud_to_pub);
+            pcl::PointCloud<pcl::PointXYZI>::Ptr pcl_cloud(new pcl::PointCloud<pcl::PointXYZI>);
+            pcl::fromROSMsg(cloud_to_pub, *pcl_cloud);
+            pcl::StatisticalOutlierRemoval<pcl::PointXYZI> sort;
+            sort.setInputCloud(pcl_cloud);
+            sort.setMeanK(50);
+            sort.setStddevMulThresh(1.5);
+            sort.filter(*pcl_cloud);
+            pcl::toROSMsg(*pcl_cloud, cloud_to_pub);
             body_cloud_pub_->publish(cloud_to_pub);
-        }
     }
+    
 
     void MapBuilderNode::publishMapCloud(const sensor_msgs::msg::PointCloud2 &cloud_to_pub)
     {
