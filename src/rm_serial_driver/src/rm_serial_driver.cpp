@@ -229,9 +229,9 @@ void RMSerialDriver::navSendData(const geometry_msgs::msg::Twist& cmd_vel)
 
     sendpacket.header = 0xA5;
     sendpacket.naving = true;
-    sendpacket.nav_x = -cmd_vel.linear.y*5000;
-    sendpacket.nav_y = cmd_vel.linear.x*5000;
-    std::cout << sendpacket.nav_x << sendpacket.nav_y <<std::endl;
+    sendpacket.nav_x = cmd_vel.linear.x*3000;
+    sendpacket.nav_y = cmd_vel.linear.y*3000;
+    // std::cout << sendpacket.nav_x << sendpacket.nav_y <<std::endl;
     
     //crc16::Append_CRC16_Check_Sum(reinterpret_cast<uint8_t *>(&sendpacket), sizeof(sendpacket));
 

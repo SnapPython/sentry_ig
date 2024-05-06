@@ -18,6 +18,8 @@
 #include <vector>
 #include <fstream>
 #include <cmath>
+#include <bitset>
+
 #include "rm_decision/commander.hpp"
 
 #include <nav2_msgs/action/navigate_to_pose.hpp>
@@ -157,37 +159,40 @@ namespace rm_decision
 
       while(rclcpp::ok()){
          if(self_hp == 0){
-            msg.sentry_cmd |= (1 << 0);
+            msg.sentry_cmd |= (1 << 31);
          }
-         if(self_hp == 0 && goldcoin > 500){
-            msg.sentry_cmd |= (1 << 1);
+         if(self_hp == 0 && goldcoin > 200){
+            msg.sentry_cmd |= (1 << 30);
          }
-         if(self_ammo < 50 && goldcoin > 500){
-            buy_ammo = 200;
-            for (int i = 2; i <= 12; ++i) {
-            msg.sentry_cmd &= ~(1 << i);
-            }
-            msg.sentry_cmd |= (buy_ammo << 2);
-         }
-         if(self_ammo < 50 && goldcoin < 300 && goldcoin > 100){
-            buy_ammo = 100;
-            for (int i = 2; i <= 12; ++i) {
-            msg.sentry_cmd &= ~(1 << i);
-            }
-            msg.sentry_cmd |= (buy_ammo << 2);
-         }
-         if(self_ammo < 50 && goldcoin < 150 && goldcoin > 50){
-            buy_ammo = 50;
-            for (int i = 2; i <= 12; ++i) {
-            msg.sentry_cmd &= ~(1 << i);
-            }
-            msg.sentry_cmd |= (buy_ammo << 2);
-         }
-         if(self_hp < 100 && goldcoin > 300){
-            buy_hp ++;
-            msg.sentry_cmd |= (buy_hp << 17);
-         }
+         // if(self_ammo < 50 && goldcoin > 500){
+         //    buy_ammo = 200;
+         //    for (int i = 2; i <= 12; ++i) {
+         //    msg.sentry_cmd &= ~(1 << i);
+         //    }
+         //    msg.sentry_cmd |= (buy_ammo << 2);
+         // }
+         // if(self_ammo < 50 && goldcoin < 300 && goldcoin > 100){
+         //    buy_ammo = 100;
+         //    for (int i = 2; i <= 12; ++i) {
+         //    msg.sentry_cmd &= ~(1 << i);
+         //    }
+         //    msg.sentry_cmd |= (buy_ammo << 2);
+         // }
+         // if(self_ammo < 50 && goldcoin < 150 && goldcoin > 50){
+         //    buy_ammo = 50;
+         //    for (int i = 2; i <= 12; ++i) {
+         //    msg.sentry_cmd &= ~(1 << i);
+         //    }
+         //    msg.sentry_cmd |= (buy_ammo << 2);
+         // }
+         // if(self_hp < 100 && goldcoin > 300){
+         //    buy_hp ++;
+         //    msg.sentry_cmd |= (buy_hp << 17);
+         // }
          sentry_cmd_pub_->publish(msg);
+         std::bitset<32> binary(msg.sentry_cmd);
+         std::cout << binary << std::endl;
+         
          r.sleep();
       }
    
@@ -324,7 +329,6 @@ namespace rm_decision
       color = msg->color;
       self_ammo = msg->projectile_allowance_17mm;
       goldcoin = msg->remaining_gold_coin;
-
       if(msg->color == 1){
          self_hp = msg->red_7;
          self_base = msg->red_base_hp;
@@ -347,6 +351,7 @@ namespace rm_decision
             base = true;
          }
       }
+      RCLCPP_INFO(this->get_logger(), "自身血量: %f, 自身弹量: %f, 自身金币: %f color: %d, gamestary: %d",self_hp,self_ammo,goldcoin,color,gamestart);
    }
 
    void Commander::aim_callback(const auto_aim_interfaces::msg::Target::SharedPtr msg) {
