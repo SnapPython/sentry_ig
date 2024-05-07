@@ -314,8 +314,8 @@ public:
         std::cout << "addhp_handle is called" << std::endl;
         goal.header.stamp = this->now();
         goal.header.frame_id = "map";
-        goal.pose.position.x = 0; 
-        goal.pose.position.y = 0;
+        goal.pose.position.x = -1.29; 
+        goal.pose.position.y = -1.14;
         goal.pose.position.z = 0.0;
         goal.pose.orientation.x = 0.0;
         goal.pose.orientation.y = 0.0;
@@ -328,8 +328,8 @@ public:
         std::cout << "defend_handle is called" << std::endl;
         goal.header.stamp = this->now();
         goal.header.frame_id = "map";
-        goal.pose.position.x = 0; 
-        goal.pose.position.y = 0;
+        goal.pose.position.x = -1.94; 
+        goal.pose.position.y = -0.79;
         goal.pose.position.z = 0.0;
         goal.pose.orientation.x = 0.0;
         goal.pose.orientation.y = 0.0;
@@ -408,7 +408,7 @@ public:
     }
 
   BT::NodeStatus IfAttack(){
-    if(self_hp >= 200 && distence(enemypose) <= 3.0){
+    if(self_hp >= 1000 && distence(enemypose) <= 3.0){
       return BT::NodeStatus::SUCCESS;
     }
     else {

@@ -357,17 +357,17 @@ namespace IG_LIO
     {
         if (body_cloud_pub_->get_subscription_count() == 0)
             return;
-        // Convert sensor_msgs::msg::PointCloud2 to pcl::PointCloud<pcl::PointXYZI>
-        pcl::PointCloud<pcl::PointXYZI>::Ptr pcl_cloud(new pcl::PointCloud<pcl::PointXYZI>);
-        pcl::fromROSMsg(cloud_to_pub, *pcl_cloud);
-        pcl::StatisticalOutlierRemoval<pcl::PointXYZI> sort;
-        sort.setInputCloud(pcl_cloud);
-        sort.setMeanK(50);
-        sort.setStddevMulThresh(1.5);
-        sort.filter(*pcl_cloud);
-        pcl::toROSMsg(*pcl_cloud, cloud_to_pub);
-        body_cloud_pub_->publish(cloud_to_pub);
+            pcl::PointCloud<pcl::PointXYZI>::Ptr pcl_cloud(new pcl::PointCloud<pcl::PointXYZI>);
+            pcl::fromROSMsg(cloud_to_pub, *pcl_cloud);
+            pcl::StatisticalOutlierRemoval<pcl::PointXYZI> sort;
+            sort.setInputCloud(pcl_cloud);
+            sort.setMeanK(50);
+            sort.setStddevMulThresh(1.5);
+            sort.filter(*pcl_cloud);
+            pcl::toROSMsg(*pcl_cloud, cloud_to_pub);
+            body_cloud_pub_->publish(cloud_to_pub);
     }
+    
 
     void MapBuilderNode::publishMapCloud(const sensor_msgs::msg::PointCloud2 &cloud_to_pub)
     {

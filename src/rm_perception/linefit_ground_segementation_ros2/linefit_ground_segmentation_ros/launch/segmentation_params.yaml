@@ -1,11 +1,11 @@
 ground_segmentation:
   ros__parameters:
-    n_threads: 16                # number of threads to use.
+    n_threads: 4               # number of threads to use.
 
     r_min: 0.2                  # minimum point distance.
     r_max: 50                   # maximum point distance.
-    n_bins: 120                 # number of radial bins.
-    n_segments: 360             # number of radial segments.
+    n_bins: 120               # number of radial bins.
+    n_segments: 360            # number of radial segments.
 
     max_dist_to_line: 0.1      # maximum vertical distance of point to line to be considered ground.
 
@@ -25,4 +25,4 @@ ground_segmentation:
 
     input_topic: "/livox/lidar/pointcloud"
     obstacle_output_topic: "segmentation/obstacle"
-    ground_output_topic: "body_cloud"
+    ground_output_topic: "segmentation/ground"

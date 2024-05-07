@@ -4,7 +4,7 @@
 # cd /home/mechax/sentry_vision2
 # colcon build --symlink-install
 cmds=( 
-	#"ros2 launch rm_bringup bringup.launch.py"
+	"ros2 launch rm_bringup bringup.launch.py"
 	"ros2 launch livox_ros_driver2 msg_MID360_launch.py"
 	"ros2 launch linefit_ground_segmentation_ros segmentation.launch.py" 
 	"ros2 launch ig_lio_c map_mapping_launch.py"

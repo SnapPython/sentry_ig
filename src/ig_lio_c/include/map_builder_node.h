@@ -39,6 +39,7 @@
 #include "./ig_lio_c/map_builder/iglio_builder.h"
 #include "./ig_lio_c/localizer/icp_localizer.h"
 #include "../../../ThirdParty/octomap-Dynamic_point_cloud_removal/octomap_mapping/include/octomapper.h"
+#include <pcl/segmentation/extract_clusters.h>
 
 namespace IG_LIO
 {
