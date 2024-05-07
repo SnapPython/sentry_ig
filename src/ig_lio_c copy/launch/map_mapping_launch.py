@@ -28,7 +28,7 @@ def generate_launch_description():
 
     ig_lio_c_node = Node(
         package='ig_lio_c',
-        executable='map_builder_node',
+        executable='map_builder_node', 
         name='map_builder_node',
         output='screen',
         parameters=[configured_params],

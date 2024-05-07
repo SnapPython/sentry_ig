@@ -8,7 +8,7 @@ namespace IG_LIO
         double timestamp = double(msg->header.stamp.sec) + double(msg->header.stamp.nanosec) / 1e9;
         if (timestamp < last_timestamp)
         {
-            RCLCPP_ERROR_STREAM(rclcpp::get_logger("map_builder_node"), RED << "imu loop back, clear buffer, last_timestamp: " << last_timestamp << "  current_timestamp: " << timestamp << RESET);
+            std::cout << "imu loop back, clear buffer, last_timestamp: " << last_timestamp << "  current_timestamp: " << timestamp << std::endl;
             buffer.clear();
         }
         last_timestamp = timestamp;
@@ -21,18 +21,13 @@ namespace IG_LIO
                             msg->angular_velocity.z);
     }
 
-    void LivoxData::calcBlindFieldByBlind()
-    {
-        blind_field = blind * blind;
-    }
-
     void LivoxData::callback(const livox_ros_driver2::msg::CustomMsg::SharedPtr msg)
     {
         std::lock_guard<std::mutex> lock(mutex);
         double timestamp = double(msg->header.stamp.sec) + double(msg->header.stamp.nanosec) / 1e9;
         if (timestamp < last_timestamp)
         {
-            RCLCPP_ERROR_STREAM(rclcpp::get_logger("map_builder_node"), RED << "livox loop back, clear buffer, last_timestamp: " << last_timestamp << "  current_timestamp: " << timestamp << RESET);
+            std::cout << "livox loop back, clear buffer, last_timestamp: " << last_timestamp << "  current_timestamp: " << timestamp << std::endl;
             buffer.clear();
             time_buffer.clear();
         }
@@ -59,10 +54,10 @@ namespace IG_LIO
                 IG_LIO::PointType p;
                 p.x = msg->points[i].x;
                 p.y = msg->points[i].y;
-                p.z = msg->points[i].z + height_offset;
+                p.z = msg->points[i].z;
                 p.intensity = float(msg->points[i].reflectivity);
                 p.curvature = float(msg->points[i].offset_time) / float(1000000);
-                if ((p.x * p.x + p.y * p.y + p.z * p.z) > blind_field)
+                if ((p.x * p.x + p.y * p.y + p.z * p.z) > (blind * blind))
                 {
                     out->push_back(p);
                 }
@@ -72,9 +67,10 @@ namespace IG_LIO
 
     Eigen::Vector3d rotate2rpy(Eigen::Matrix3d &rot)
     {
-        return Eigen::Vector3d(std::atan2(rot(2, 1), rot(2, 2)),
-                               asin(-rot(2, 0)),
-                               std::atan2(rot(1, 0), rot(0, 0)));
+        double roll = std::atan2(rot(2, 1), rot(2, 2));
+        double pitch = asin(-rot(2, 0));
+        double yaw = std::atan2(rot(1, 0), rot(0, 0));
+        return Eigen::Vector3d(roll, pitch, yaw);
     }
 
     bool MeasureGroup::syncPackage(ImuData &imu_data, LivoxData &livox_data)
@@ -85,7 +81,7 @@ namespace IG_LIO
         {
             lidar = livox_data.buffer.front();
             lidar_time_begin = livox_data.time_buffer.front();
-            lidar_time_end = double(lidar_time_begin) + double(lidar->points.back().curvature) / double(1000);
+            lidar_time_end =  double(lidar_time_begin) + double(lidar->points.back().curvature) / double(1000);
             lidar_pushed = true;
         }
 

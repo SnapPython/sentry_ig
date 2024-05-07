@@ -16,8 +16,6 @@
 #include <pcl_conversions/pcl_conversions.h>
 #include <geometry_msgs/msg/transform_stamped.hpp>
 
-#include "color.h"
-
 #define NUM_MATCH_POINTS (5)
 #define NUM_MAX_POINTS (10000)
 
@@ -68,11 +66,8 @@ namespace IG_LIO
         std::deque<IG_LIO::PointCloudXYZI::Ptr> buffer;
         std::deque<double> time_buffer;
         double blind = 0.35;
-        double blind_field = 0.1225;
         int filter_num = 3;
         double last_timestamp = 0;
-        double height_offset = 0.0;
-        void calcBlindFieldByBlind();
         void callback(const livox_ros_driver2::msg::CustomMsg::SharedPtr msg);
         void livox2pcl(const livox_ros_driver2::msg::CustomMsg::SharedPtr msg, IG_LIO::PointCloudXYZI::Ptr out);
     };

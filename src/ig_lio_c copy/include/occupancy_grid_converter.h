@@ -15,7 +15,6 @@
 #include <pcl/point_types.h>
 #include <pcl/point_cloud.h>
 #include <pcl_conversions/pcl_conversions.h>
-#include <pcl/filters/passthrough.h>
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
@@ -26,8 +25,6 @@
 #include <Magick++.h>
 
 #include <tbb/parallel_for.h>
-
-#include "./ig_lio_c/color.h"
 
 namespace IG_LIO
 {
@@ -57,8 +54,7 @@ namespace IG_LIO
         void initPublishers();
         void initSerivces();
         void init();
-        pcl::PointCloud<pcl::PointXYZ>::Ptr filterPointCloudByHeightRange(const pcl::PointCloud<pcl::PointXYZ>::Ptr &input_cloud);
-        grid_map::GridMap makeGridMapFromDepth(pcl::PointCloud<pcl::PointXYZ>::Ptr &cloud_ptr, builtin_interfaces::msg::Time stamp);
+        grid_map::GridMap makeGridMapFromDepth(const sensor_msgs::msg::PointCloud2 &cloud_to_make);
         grid_map::GridMap makeGridMap(const pcl::PointCloud<pcl::PointXYZ>::Ptr &cloud_to_make);
         void pointCloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
         void publishGridMap(const grid_map::GridMap &gridMap_to_pub);
@@ -71,17 +67,13 @@ namespace IG_LIO
             const SaveParameters &save_parameters);
 
     private:
-        std::string map_frame = "map";
-        std::string local_frame = "local";
         std::string robot_frame = "base_link";
         int grid_map_cloud_size = 10;
         double occupancyGriddataMin = 0.5;
         double occupancyGriddataMax = 10.0;
-        double point_min_dist_ = 0.1;
-        double point_max_dist_ = 5.0;
+        double point_min_dist_ = 0.4;
+        double point_max_dist_ = 2.5;
         double min_distance = 0.4;
-        double point_min_height = 0.0;
-        double point_max_height = 10.0;
         std::shared_ptr<grid_map::GridMapPclLoader> gridMapPclLoader;
         rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr point_cloud_subscription_;
         rclcpp::Publisher<grid_map_msgs::msg::GridMap>::SharedPtr local_grid_map_pub_;

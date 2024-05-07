@@ -22,13 +22,12 @@ namespace IG_LIO
 
     IGLIOBuilder::IGLIOBuilder(IGLIOParams &params) : params_(params)
     {
-        pointIMU_ = std::make_shared<IG_LIO::PiontIMU>();
         kf_ = std::make_shared<IG_LIO::IESKF>(params_.esikf_max_iteration);
         kf_->set_share_function(
             [this](IG_LIO::State &s, IG_LIO::SharedState &d)
             { sharedUpdateFunc(s, d); });
 
-        imu_processor_ = std::make_shared<IMUProcessor>(kf_, pointIMU_);
+        imu_processor_ = std::make_shared<IMUProcessor>(kf_);
         imu_processor_->setCov(params.imu_gyro_cov, params.imu_acc_cov, params.imu_gyro_bias_cov, params.imu_acc_bias_cov);
         Eigen::Matrix3d rot_ext;
         Eigen::Vector3d pos_ext;
@@ -53,6 +52,7 @@ namespace IG_LIO
 
     void IGLIOBuilder::mapping(const MeasureGroup &meas)
     {
+        //点云去除畸变
         if (!imu_processor_->operator()(meas, cloud_lidar_))
             return;
 
@@ -65,8 +65,6 @@ namespace IG_LIO
             key_rot_ = kf_->x().rot;
             key_pos_ = kf_->x().pos;
             status = Status::MAPPING;
-            last_pos = kf_->x().pos;
-            last_lidar_time = meas.lidar_time_end;
             return;
         }
         fast_voxel_map_->filter(cloud_lidar_, point_array_lidar_);
@@ -81,9 +79,6 @@ namespace IG_LIO
             key_pos_ = kf_->x().pos;
             return;
         }
-        pointIMU_->setRot(kf_->x().rot);
-        pointIMU_->setPos(kf_->x().pos);
-        pointIMU_->setV((kf_->x().pos - last_pos) / (meas.lidar_time_end - last_lidar_time));
 
         if (cloud_lidar_->size() < 1000 || Sophus::SO3d(kf_->x().rot.transpose() * key_rot_).log().norm() > 0.18 || (kf_->x().pos - key_pos_).norm() > 0.5)
         {
@@ -93,8 +88,6 @@ namespace IG_LIO
             key_rot_ = kf_->x().rot;
             key_pos_ = kf_->x().pos;
         }
-        last_lidar_time = meas.lidar_time_end;
-        last_pos = kf_->x().pos;
     }
 
     void IGLIOBuilder::sharedUpdateFunc(IG_LIO::State &state, IG_LIO::SharedState &shared_state)
@@ -168,7 +161,7 @@ namespace IG_LIO
         }
 
         if (effect_feat_num < 1)
-            RCLCPP_ERROR_STREAM(rclcpp::get_logger("map_builder_node"), RED << "FastlioConstraint NO EFFECTIVE POINTS!" << RESET);
+            std::cout << "FastlioConstraint NO EFFECTIVE POINTS!" << std::endl;
     }
 
     void IGLIOBuilder::gicpConstraint(IG_LIO::State &state, IG_LIO::SharedState &shared_state)
@@ -199,7 +192,7 @@ namespace IG_LIO
         shared_state.b.setZero();
 
         Eigen::Matrix<double, 3, 12> J;
-        for (std::size_t i = 0; i < gicp_cache_.size(); i++)
+        for (int i = 0; i < gicp_cache_.size(); i++)
         {
             GICPCorrespond &gicp_corr = gicp_cache_[i];
             Eigen::Vector3d p_lidar = gicp_corr.meanA;
@@ -226,31 +219,28 @@ namespace IG_LIO
         }
 
         if (gicp_cache_.size() < 1)
-            RCLCPP_ERROR_STREAM(rclcpp::get_logger("map_builder_node"), RED << "GicpConstraint NO EFFECTIVE POINTS!" << RESET);
+            std::cout << "GicpConstraint NO EFFECTIVE POINTS!" << std::endl;
     }
 
     PointCloudXYZI::Ptr IGLIOBuilder::transformToWorld(const PointCloudXYZI::Ptr cloud)
     {
         PointCloudXYZI::Ptr cloud_world(new PointCloudXYZI);
-        cloud_world->resize(cloud->size());
-        cloud_world->reserve(cloud->size());
         Eigen::Matrix3d rot = kf_->x().rot;
         Eigen::Vector3d pos = kf_->x().pos;
         Eigen::Matrix3d rot_ext = kf_->x().rot_ext;
         Eigen::Vector3d pos_ext = kf_->x().pos_ext;
-
-        for (size_t i = 0; i < cloud->points.size(); ++i)
+        cloud_world->reserve(cloud->size());
+        for (auto &p : cloud->points)
         {
-            Eigen::Vector3d point(cloud->points[i].x, cloud->points[i].y, cloud->points[i].z);
+            Eigen::Vector3d point(p.x, p.y, p.z);
             point = rot * (rot_ext * point + pos_ext) + pos;
-
-            PointType &p_world = cloud_world->points[i];
+            PointType p_world;
             p_world.x = point(0);
             p_world.y = point(1);
             p_world.z = point(2);
-            p_world.intensity = cloud->points[i].intensity;
+            p_world.intensity = p.intensity;
+            cloud_world->points.push_back(p_world);
         }
-
         return cloud_world;
     }
 
@@ -266,16 +256,9 @@ namespace IG_LIO
         return transformToWorld(cloud_lidar_);
     }
 
-    void IGLIOBuilder::calcIMUCompensation(IG_LIO::IMU imu)
-    {
-        if (status == Status::MAPPING)
-            pointIMU_->update(imu);
-    }
-
     void IGLIOBuilder::reset()
     {
         status = Status::INITIALIZE;
-        last_lidar_time = 0.;
         imu_processor_->reset();
         IG_LIO::State state = kf_->x();
         state.rot.setIdentity();

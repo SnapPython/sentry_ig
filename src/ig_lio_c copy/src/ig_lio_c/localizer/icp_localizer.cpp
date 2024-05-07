@@ -34,11 +34,13 @@ namespace IG_LIO
         icp_refine_.setMaximumIterations(refine_iter_);
         icp_refine_.setInputTarget(refine_map_);
         initialized_ = true;
+        RCLCPP_INFO(rclcpp::get_logger("localizer"), "ICP localizer initialized");
     }
 
     Eigen::Matrix4d IcpLocalizer::align(pcl::PointCloud<pcl::PointXYZI>::Ptr source, Eigen::Matrix4d init_guess)
     {
         success_ = false;
+        Eigen::Vector3d xyz = init_guess.block<3, 1>(0, 3);
 
         pcl::PointCloud<pcl::PointXYZI>::Ptr rough_source(new pcl::PointCloud<pcl::PointXYZI>);
         pcl::PointCloud<pcl::PointXYZI>::Ptr refine_source(new pcl::PointCloud<pcl::PointXYZI>);

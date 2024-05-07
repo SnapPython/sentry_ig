@@ -39,6 +39,7 @@
 #include "./ig_lio_c/map_builder/iglio_builder.h"
 #include "./ig_lio_c/localizer/icp_localizer.h"
 #include "../../../ThirdParty/octomap-Dynamic_point_cloud_removal/octomap_mapping/include/octomapper.h"
+#include <pcl/segmentation/extract_clusters.h>
 
 namespace IG_LIO
 {
@@ -48,12 +49,12 @@ namespace IG_LIO
 
     struct LoopPair
     {
+        LoopPair(int p, int c, float s, Eigen::Matrix3d &dr, Eigen::Vector3d &dp) : pre_idx(p), cur_idx(c), score(s), diff_rot(dr), diff_pos(dp) {}
         int pre_idx;
         int cur_idx;
-        double score;
         Eigen::Matrix3d diff_rot;
         Eigen::Vector3d diff_pos;
-        LoopPair(int p, int c, float s, Eigen::Matrix3d &dr, Eigen::Vector3d &dp) : pre_idx(p), cur_idx(c), score(s), diff_rot(dr), diff_pos(dp) {}
+        double score;
     };
 
     struct Pose6D
@@ -94,8 +95,6 @@ namespace IG_LIO
         std::mutex mutex;
         Eigen::Matrix3d offset_rot = Eigen::Matrix3d::Identity();
         Eigen::Vector3d offset_pos = Eigen::Vector3d::Zero();
-        Eigen::Matrix3d offset_rot_loc = Eigen::Matrix3d::Identity();
-        Eigen::Vector3d offset_pos_loc = Eigen::Vector3d::Zero();
         std::vector<Pose6D> key_poses;
         std::vector<LoopPair> loop_pairs;
         std::vector<std::pair<int, int>> loop_history;
@@ -122,10 +121,6 @@ namespace IG_LIO
         bool activate = false;
     };
 
-    /**
-     * @brief 回环检测
-     * 用于处理回环检测，异步于主线程，通过shared_data共享数据
-     */
     class LoopClosureThread
     {
     public:
@@ -203,7 +198,7 @@ namespace IG_LIO
                 }
                 if (!loop_params_.activate)
                     continue;
-                if (shared_data_->key_poses.size() < std::size_t(loop_params_.loop_pose_index_thresh))
+                if (shared_data_->key_poses.size() < loop_params_.loop_pose_index_thresh)
                     continue;
                 if (!shared_data_->key_pose_added)
                     continue;
@@ -283,7 +278,7 @@ namespace IG_LIO
             std::vector<float> sqdists;
             kdtree_history_poses_->radiusSearch(cloud_history_poses_->back(), loop_params_.loop_pose_search_radius, ids, sqdists, 0);
 
-            for (std::size_t i = 0; i < ids.size(); i++)
+            for (int i = 0; i < ids.size(); i++)
             {
                 int id = ids[i];
                 if (std::abs(temp_poses_[id].time - temp_poses_.back().time) > loop_params_.time_thresh && std::abs(cur_index - id) >= loop_params_.loop_pose_index_thresh)
@@ -309,7 +304,8 @@ namespace IG_LIO
 
             if (!icp_->hasConverged() || score > loop_params_.loop_icp_thresh)
                 return;
-            RCLCPP_INFO_STREAM(rclcpp::get_logger("map_builder_node"), CYAN << "Detected LOOP: " << MAGENTA << pre_index << " " << cur_index << " " << score << RESET);
+
+            std::cout << "Detected LOOP: " << pre_index << " " << cur_index << " " << score << std::endl;
             shared_data_->loop_history.emplace_back(pre_index, cur_index);
             loop_found_ = true;
 
@@ -387,13 +383,11 @@ namespace IG_LIO
             Eigen::Vector3d offset_pos;
             temp_poses_[lastest_index_].getOffset(offset_rot, offset_pos);
 
-            int current_size;
-            {
-                std::lock_guard<std::mutex> lck(shared_data_->mutex);
-                current_size = shared_data_->key_poses.size();
-                shared_data_->offset_rot = offset_rot;
-                shared_data_->offset_pos = offset_pos;
-            }
+            shared_data_->mutex.lock();
+            int current_size = shared_data_->key_poses.size();
+            shared_data_->offset_rot = offset_rot;
+            shared_data_->offset_pos = offset_pos;
+            shared_data_->mutex.unlock();
 
             for (int i = 0; i < lastest_index_; i++)
             {
@@ -409,10 +403,6 @@ namespace IG_LIO
         }
     };
 
-    /**
-     * @brief 重定位
-     * 在线重定位，异步于主线程，通过shared_data共享数据，由ReLoc服务触发
-     */
     class LocalizerThread
     {
     public:
@@ -425,11 +415,11 @@ namespace IG_LIO
 
         void setRate(double rate)
         {
-            rate_ = std::make_shared<rclcpp::Rate>(rate);
+            icp_rate_ = std::make_shared<rclcpp::Rate>(rate);
         }
         void setRate(std::shared_ptr<rclcpp::Rate> rate)
         {
-            rate_ = rate;
+            icp_rate_ = rate;
         }
         void setLocalizer(std::shared_ptr<IG_LIO::IcpLocalizer> localizer)
         {
@@ -439,7 +429,7 @@ namespace IG_LIO
         void operator()()
         {
             current_cloud_.reset(new pcl::PointCloud<pcl::PointXYZI>);
-
+            rate_ = std::make_shared<rclcpp::Rate>(5.0);
             while (is_alive)
             {
                 rate_->sleep();
@@ -454,7 +444,7 @@ namespace IG_LIO
                     continue;
                 if (!shared_data_->pose_updated)
                     continue;
-                global_pose_.setIdentity();
+                gloabl_pose_.setIdentity();
                 bool rectify = false;
                 Eigen::Matrix4d init_guess;
                 {
@@ -463,44 +453,53 @@ namespace IG_LIO
                     init_guess.setIdentity();
                     local_rot_ = shared_data_->local_rot;
                     local_pos_ = shared_data_->local_pos;
-                    init_guess.block<3, 3>(0, 0) = shared_data_->offset_rot_loc * local_rot_;
-                    init_guess.block<3, 1>(0, 3) = shared_data_->offset_rot_loc * local_pos_ + shared_data_->offset_pos;
+                    init_guess.block<3, 3>(0, 0) = shared_data_->offset_rot * local_rot_;
+                    init_guess.block<3, 1>(0, 3) = shared_data_->offset_rot * local_pos_ + shared_data_->offset_pos;
                     pcl::copyPointCloud(*shared_data_->cloud, *current_cloud_);
                 }
 
                 if (shared_data_->localizer_service_called)
                 {
+                    rate_ = std::make_shared<rclcpp::Rate>(5.0);
                     std::lock_guard<std::mutex> lock(shared_data_->service_mutex);
-                    shared_data_->localizer_service_called = false;
                     icp_localizer_->init(shared_data_->map_path, false);
-                    global_pose_ = icp_localizer_->multi_align_sync(current_cloud_, shared_data_->initial_guess);
+                    gloabl_pose_ = icp_localizer_->multi_align_sync(current_cloud_, shared_data_->initial_guess);
                     if (icp_localizer_->isSuccess())
                     {
                         rectify = true;
                         shared_data_->localizer_activate = true;
                         shared_data_->localizer_service_success = true;
+                        shared_data_->localizer_service_called = false;
+                        RCLCPP_INFO(rclcpp::get_logger("localizer"), "Init Localizer service success");
                     }
+
                     else
                     {
                         rectify = false;
-                        shared_data_->localizer_activate = false;
+                        //shared_data_->localizer_activate = false;
                         shared_data_->localizer_service_success = false;
+                        RCLCPP_INFO(rclcpp::get_logger("localizer"), "Init Localizer service failed");
                     }
                 }
                 else
                 {
-                    global_pose_ = icp_localizer_->align(current_cloud_, init_guess);
-                    if (icp_localizer_->isSuccess())
+                    gloabl_pose_ = icp_localizer_->align(current_cloud_, init_guess);
+                    if (icp_localizer_->isSuccess()){
+                        rate_=icp_rate_;
                         rectify = true;
-                    else
+                        RCLCPP_INFO(rclcpp::get_logger("localizer"), "Localizer success");
+                    }
+                    else{
                         rectify = false;
+                        RCLCPP_INFO(rclcpp::get_logger("localizer"), "Localizer failed");
+                    }
                 }
 
                 if (rectify)
                 {
                     std::lock_guard<std::mutex> lock(shared_data_->mutex);
-                    shared_data_->offset_rot_loc = global_pose_.block<3, 3>(0, 0) * local_rot_.transpose();
-                    shared_data_->offset_pos_loc = -global_pose_.block<3, 3>(0, 0) * local_rot_.transpose() * local_pos_ + global_pose_.block<3, 1>(0, 3);
+                    shared_data_->offset_rot = gloabl_pose_.block<3, 3>(0, 0) * local_rot_.transpose();
+                    shared_data_->offset_pos = -gloabl_pose_.block<3, 3>(0, 0) * local_rot_.transpose() * local_pos_ + gloabl_pose_.block<3, 1>(0, 3);
                 }
             }
         }
@@ -512,28 +511,17 @@ namespace IG_LIO
 
     private:
         bool is_alive = true;
-
         bool terminate_flag = false;
-
         std::shared_ptr<SharedData> shared_data_;
-
         std::shared_ptr<IG_LIO::IcpLocalizer> icp_localizer_;
-
         std::shared_ptr<rclcpp::Rate> rate_;
-
+        std::shared_ptr<rclcpp::Rate> icp_rate_;
         pcl::PointCloud<pcl::PointXYZI>::Ptr current_cloud_;
-
-        Eigen::Matrix4d global_pose_;
-
+        Eigen::Matrix4d gloabl_pose_;
         Eigen::Matrix3d local_rot_;
-
         Eigen::Vector3d local_pos_;
     };
 
-    /**
-     * @brief 主节点
-     * iG-LIO SLAM主要Node
-     */
     class MapBuilderNode : public rclcpp::Node
     {
     public:
@@ -553,16 +541,14 @@ namespace IG_LIO
         void init();
         void systemReset();
         void addKeyPose();
-        void publishBodyCloud(const sensor_msgs::msg::PointCloud2 &cloud_to_pub);
+        void publishBodyCloud(sensor_msgs::msg::PointCloud2 cloud_to_pub);
         void publishMapCloud(const sensor_msgs::msg::PointCloud2 &cloud_to_pub);
         void publishLocalCloud(const sensor_msgs::msg::PointCloud2 &cloud_to_pub);
-        void publishSlamCloud(const sensor_msgs::msg::PointCloud2 &cloud_to_pub);
         void publishOdom(const nav_msgs::msg::Odometry &odom_to_pub);
         void publishBaseLink();
         void publishLocalPath();
         void publishGlobalPath();
         void publishLoopMark();
-        void imuCallbackGroup(const sensor_msgs::msg::Imu::SharedPtr msg);
         void saveMapCallBack(const ig_lio_c_msgs::srv::SaveMap::Request::SharedPtr request,
                              const ig_lio_c_msgs::srv::SaveMap::Response::SharedPtr response);
         void relocCallback(const ig_lio_c_msgs::srv::ReLoc::Request::SharedPtr request,
@@ -573,12 +559,9 @@ namespace IG_LIO
         std::string local_frame_;
         std::string body_frame_;
         std::string dynamic_point_cloud_removal_config_;
-
         double current_time_;
-        bool publish_map_cloud_, publish_slam_cloud_;
-        int max_slam_cloud_num_ = 100;
+        bool publish_map_cloud_;
         bool localizer_reloc_on_init;
-
         std::shared_future<std::shared_ptr<ig_lio_c_msgs::srv::ReLoc_Response>> localizer_response;
         std::string localizer_pcd_path;
         std::vector<double> localizer_xyz_rpy = {0., 0., 0., 0., 0., 0.};
@@ -588,15 +571,12 @@ namespace IG_LIO
         MeasureGroup measure_group_;
         IG_LIO::IGLIOParams lio_params_;
         IG_LIO::LocalizerParams localizer_params_;
-
         std::shared_ptr<IG_LIO::IGLIOBuilder> lio_builder_;
         std::shared_ptr<IG_LIO::IcpLocalizer> icp_localizer_;
-
         std::shared_ptr<SharedData> shared_data_;
         std::shared_ptr<rclcpp::Rate> local_rate_;
         std::shared_ptr<rclcpp::Rate> loop_rate_lc_;
         std::shared_ptr<rclcpp::Rate> loop_rate_l_;
-
         LoopClosureThread loop_closure_;
         std::shared_ptr<std::thread> loop_thread_;
         LocalizerThread localizer_loop_;
@@ -608,7 +588,6 @@ namespace IG_LIO
         rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr local_cloud_pub_;
         rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr body_cloud_pub_;
         rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr map_cloud_pub_;
-        rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr slam_cloud_pub_;
         rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr loop_mark_pub_;
         rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr local_path_pub_;
         rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr global_path_pub_;

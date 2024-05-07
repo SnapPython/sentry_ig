@@ -5,18 +5,11 @@ namespace IG_LIO
     MapBuilderNode::MapBuilderNode(const rclcpp::NodeOptions &options)
         : Node("map_builder", options)
     {
-        RCLCPP_INFO_STREAM(this->get_logger(), GREEN << "Starting map_builder node ..." << RESET);
-        RCLCPP_INFO_STREAM(this->get_logger(), BLUE << "processing params ..." << RESET);
         param_respond();
-        RCLCPP_INFO_STREAM(this->get_logger(), BLUE << "processing subscribers ..." << RESET);
         initSubscribers();
-        RCLCPP_INFO_STREAM(this->get_logger(), BLUE << "processing publishers ..." << RESET);
         initPublishers();
-        RCLCPP_INFO_STREAM(this->get_logger(), BLUE << "processing serivces ..." << RESET);
         initSerivces();
-        RCLCPP_INFO_STREAM(this->get_logger(), BLUE << "processing init ..." << RESET);
         init();
-        RCLCPP_INFO_STREAM(this->get_logger(), GREEN << "DONE." << RESET);
     }
 
     MapBuilderNode::~MapBuilderNode()
@@ -25,55 +18,32 @@ namespace IG_LIO
 
     void MapBuilderNode::param_respond()
     {
-        this->declare_parameter<std::string>("map_frame", std::string("map"));
-        this->declare_parameter<std::string>("local_frame", std::string("local"));
-        this->declare_parameter<std::string>("body_frame", std::string("body"));
-        this->declare_parameter<std::string>("imu_topic", std::string("/imu/data"));
-        this->declare_parameter<std::string>("livox_topic", std::string("/livox/lidar"));
-        this->declare_parameter<std::string>("dynamic_point_cloud_removal_config", std::string("config_fg.yaml"));
+        this->declare_parameter<std::string>("map_frame", "map");
+        this->declare_parameter<std::string>("local_frame", "local");
+        this->declare_parameter<std::string>("body_frame", "body");
+        this->declare_parameter<std::string>("imu_topic", "/imu/data");
+        this->declare_parameter<std::string>("livox_topic", "/livox/lidar");
+        this->declare_parameter<std::string>("dynamic_point_cloud_removal_config", "config_fg.yaml");
         this->get_parameter("map_frame", global_frame_);
         this->get_parameter("local_frame", local_frame_);
         this->get_parameter("body_frame", body_frame_);
         this->get_parameter("imu_topic", imu_data_.topic);
         this->get_parameter("livox_topic", livox_data_.topic);
         this->get_parameter("dynamic_point_cloud_removal_config", dynamic_point_cloud_removal_config_);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "map_frame set to " << global_frame_ << RESET);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "local_frame set to " << local_frame_ << RESET);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "body_frame set to " << body_frame_ << RESET);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "imu_topic set to " << imu_data_.topic << RESET);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "livox_topic set to " << livox_data_.topic << RESET);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "dynamic_point_cloud_removal_config set to " << dynamic_point_cloud_removal_config_ << RESET);
-        this->declare_parameter<bool>("publish_map_cloud", false);
-        this->declare_parameter<bool>("publish_slam_cloud", false);
-        this->declare_parameter<int>("max_slam_cloud_num", 100);
+        this->declare_parameter("publish_map_cloud", false);
         this->get_parameter("publish_map_cloud", publish_map_cloud_);
-        this->get_parameter("publish_slam_cloud", publish_slam_cloud_);
-        this->get_parameter("max_slam_cloud_num", max_slam_cloud_num_);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "publish_map_cloud set to " << publish_map_cloud_ << RESET);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "publish_slam_cloud set to " << publish_slam_cloud_ << RESET);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "max_slam_cloud_num set to " << max_slam_cloud_num_ << RESET);
-        {
-            double local_rate, loop_rate_lc, loop_rate_l;
-            this->declare_parameter<double>("local_rate", 20.0);
-            this->declare_parameter<double>("loop_rate_lc", 1.0);
-            this->declare_parameter<double>("loop_rate_l", 1.0);
-            this->get_parameter("local_rate", local_rate);
-            this->get_parameter("loop_rate_lc", loop_rate_lc);
-            this->get_parameter("loop_rate_l", loop_rate_l);
-            RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "local_rate set to " << local_rate << RESET);
-            RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "loop_rate_lc set to " << loop_rate_lc << RESET);
-            RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "loop_rate_l set to " << loop_rate_l << RESET);
-            local_rate_ = std::make_shared<rclcpp::Rate>(local_rate);
-            loop_rate_lc_ = std::make_shared<rclcpp::Rate>(loop_rate_lc);
-            loop_rate_l_ = std::make_shared<rclcpp::Rate>(loop_rate_l);
-        }
+        double local_rate, loop_rate_lc, loop_rate_l;
+        this->declare_parameter<double>("local_rate", 20.0);
+        this->declare_parameter<double>("loop_rate_lc", 1.0);
+        this->declare_parameter<double>("loop_rate_l", 1.0);
+        this->get_parameter("local_rate", local_rate);
+        this->get_parameter("loop_rate_lc", loop_rate_lc);
+        this->get_parameter("loop_rate_l", loop_rate_l);
+        local_rate_ = std::make_shared<rclcpp::Rate>(local_rate);
+        loop_rate_lc_ = std::make_shared<rclcpp::Rate>(loop_rate_lc);
+        loop_rate_l_ = std::make_shared<rclcpp::Rate>(loop_rate_l);
         this->declare_parameter<double>("blind", 0.5);
-        this->declare_parameter<double>("height_offset", 0.7);
         this->get_parameter("blind", livox_data_.blind);
-        livox_data_.calcBlindFieldByBlind();
-        this->get_parameter("height_offset", livox_data_.height_offset);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "blind set to " << livox_data_.blind << RESET);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "height_offset set to " << livox_data_.height_offset << RESET);
         this->declare_parameter<double>("lio_builder.scan_resolution", 0.3);
         this->declare_parameter<double>("lio_builder.map_resolution", 0.3);
         this->declare_parameter<double>("lio_builder.point2plane_gain", 100.0);
@@ -82,112 +52,61 @@ namespace IG_LIO
         this->get_parameter("lio_builder.map_resolution", lio_params_.map_resolution);
         this->get_parameter("lio_builder.point2plane_gain", lio_params_.point2plane_gain);
         this->get_parameter("lio_builder.gicp_constraint_gain", lio_params_.gicp_constraint_gain);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "lio_builder.scan_resolution set to " << lio_params_.scan_resolution << RESET);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "lio_builder.map_resolution set to " << lio_params_.map_resolution << RESET);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "lio_builder.point2plane_gain set to " << lio_params_.point2plane_gain << RESET);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "lio_builder.gicp_constraint_gain set to " << lio_params_.gicp_constraint_gain << RESET);
-        {
-            int map_capacity, grid_capacity;
-            this->declare_parameter<int>("lio_builder.map_capacity", 5000000);
-            this->declare_parameter<int>("lio_builder.grid_capacity", 20);
-            this->get_parameter("lio_builder.map_capacity", map_capacity);
-            this->get_parameter("lio_builder.grid_capacity", grid_capacity);
-            lio_params_.map_capacity = static_cast<size_t>(map_capacity);
-            lio_params_.grid_capacity = static_cast<size_t>(grid_capacity);
-            RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "lio_builder.map_capacity set to " << lio_params_.map_capacity << RESET);
-            RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "lio_builder.grid_capacity set to " << lio_params_.grid_capacity << RESET);
-        }
+        int map_capacity, grid_capacity;
+        this->declare_parameter<int>("lio_builder.map_capacity", 5000000);
+        this->declare_parameter<int>("lio_builder.grid_capacity", 20);
+        this->get_parameter("lio_builder.map_capacity", map_capacity);
+        this->get_parameter("lio_builder.grid_capacity", grid_capacity);
+        lio_params_.map_capacity = static_cast<size_t>(map_capacity);
+        lio_params_.grid_capacity = static_cast<size_t>(grid_capacity);
         this->declare_parameter<bool>("lio_builder.align_gravity", true);
         this->declare_parameter<bool>("lio_builder.set_initpose", true);
         this->declare_parameter<bool>("lio_builder.extrinsic_est_en", false);
+        std::vector<double> pre_rot = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+        std::vector<double> pre_pos = {-0.011, -0.02329, 0.04412};
         this->declare_parameter<double>("lio_builder.acc_cov", 0.1);
         this->declare_parameter<double>("lio_builder.gyr_cov", 0.1);
         this->declare_parameter<double>("lio_builder.ba_cov", 0.00001);
         this->declare_parameter<double>("lio_builder.bg_cov", 0.00001);
-        this->get_parameter("lio_builder.align_gravity", lio_params_.align_gravity);
-        this->get_parameter("lio_builder.set_initpose", lio_params_.set_initpose);
-        this->get_parameter("lio_builder.extrinsic_est_en", lio_params_.extrinsic_est_en);
+        this->declare_parameter<std::vector<double>>("lio_builder.imu_ext_rot", pre_rot);
+        this->declare_parameter<std::vector<double>>("lio_builder.imu_ext_pos", pre_pos);
         this->get_parameter("lio_builder.acc_cov", lio_params_.imu_acc_cov);
         this->get_parameter("lio_builder.gyr_cov", lio_params_.imu_gyro_cov);
         this->get_parameter("lio_builder.ba_cov", lio_params_.imu_acc_bias_cov);
         this->get_parameter("lio_builder.bg_cov", lio_params_.imu_gyro_bias_cov);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "lio_builder.align_gravity set to " << lio_params_.align_gravity << RESET);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "lio_builder.set_initpose set to " << lio_params_.set_initpose << RESET);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "lio_builder.extrinsic_est_en set to " << lio_params_.extrinsic_est_en << RESET);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "lio_builder.acc_cov set to " << lio_params_.imu_acc_cov << RESET);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "lio_builder.gyr_cov set to " << lio_params_.imu_gyro_cov << RESET);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "lio_builder.ba_cov set to " << lio_params_.imu_acc_bias_cov << RESET);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "lio_builder.bg_cov set to " << lio_params_.imu_gyro_bias_cov << RESET);
+        this->get_parameter("lio_builder.align_gravity", lio_params_.align_gravity);
+        this->get_parameter("lio_builder.set_initpose", lio_params_.set_initpose);
+        this->get_parameter("lio_builder.extrinsic_est_en", lio_params_.extrinsic_est_en);
+        this->get_parameter("lio_builder.imu_ext_rot", lio_params_.imu_ext_rot);
+        this->get_parameter("lio_builder.imu_ext_pos", lio_params_.imu_ext_pos);
+        int mode;
+        this->declare_parameter<int>("lio_builder.near_mode", 2);
+        this->get_parameter("lio_builder.near_mode", mode);
+        switch (mode)
         {
-            std::vector<double> pre_rot = {1, 0, 0, 0, 1, 0, 0, 0, 1};
-            std::vector<double> pre_pos = {-0.011, -0.02329, 0.04412};
-            this->declare_parameter<std::vector<double>>("lio_builder.imu_ext_rot", pre_rot);
-            this->declare_parameter<std::vector<double>>("lio_builder.imu_ext_pos", pre_pos);
-            this->get_parameter("lio_builder.imu_ext_rot", lio_params_.imu_ext_rot);
-            this->get_parameter("lio_builder.imu_ext_pos", lio_params_.imu_ext_pos);
-            RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "lio_builder.imu_ext_rot set to "
-                                                        << lio_params_.imu_ext_rot[0] << " "
-                                                        << lio_params_.imu_ext_rot[1] << " "
-                                                        << lio_params_.imu_ext_rot[2] << " "
-                                                        << lio_params_.imu_ext_rot[3] << " "
-                                                        << lio_params_.imu_ext_rot[4] << " "
-                                                        << lio_params_.imu_ext_rot[5] << " "
-                                                        << lio_params_.imu_ext_rot[6] << " "
-                                                        << lio_params_.imu_ext_rot[7] << " "
-                                                        << lio_params_.imu_ext_rot[8] << " "
-                                                        << RESET);
-            RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "lio_builder.imu_ext_pos set to "
-                                                        << lio_params_.imu_ext_pos[0] << " "
-                                                        << lio_params_.imu_ext_pos[1] << " "
-                                                        << lio_params_.imu_ext_pos[2] << " "
-                                                        << RESET);
-        }
-        {
-            int mode;
-            this->declare_parameter<int>("lio_builder.near_mode", 2);
-            this->get_parameter("lio_builder.near_mode", mode);
-            RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "lio_builder.near_mode set to " << mode << RESET);
-            switch (mode)
-            {
-            case 1:
-                lio_params_.mode = IG_LIO::VoxelMap::MODE::NEARBY_1;
-                break;
-            case 2:
-                lio_params_.mode = IG_LIO::VoxelMap::MODE::NEARBY_7;
-                break;
-            case 3:
-                lio_params_.mode = IG_LIO::VoxelMap::MODE::NEARBY_19;
-                break;
-            case 4:
-                lio_params_.mode = IG_LIO::VoxelMap::MODE::NEARBY_26;
-                break;
+        case 1:
+            lio_params_.mode = IG_LIO::VoxelMap::MODE::NEARBY_1;
+            break;
+        case 2:
+            lio_params_.mode = IG_LIO::VoxelMap::MODE::NEARBY_7;
+            break;
+        case 3:
+            lio_params_.mode = IG_LIO::VoxelMap::MODE::NEARBY_19;
+            break;
+        case 4:
+            lio_params_.mode = IG_LIO::VoxelMap::MODE::NEARBY_26;
+            break;
 
-            default:
-                lio_params_.mode = IG_LIO::VoxelMap::MODE::NEARBY_1;
-                break;
-            }
+        default:
+            lio_params_.mode = IG_LIO::VoxelMap::MODE::NEARBY_1;
+            break;
         }
-        {
-            std::vector<double> pre_ext_r = {3.14, 0., 0.};
-            std::vector<double> pre_ext_t = {-0.0151, 0., 0.};
-            this->declare_parameter<std::vector<double>>("lio_slam.ext_r", pre_ext_r);
-            this->declare_parameter<std::vector<double>>("lio_slam.ext_t", pre_ext_t);
-            this->get_parameter("lio_slam.ext_r", lio_params_.ext_r);
-            this->get_parameter("lio_slam.ext_t", lio_params_.ext_t);
-            RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "lio_slam.ext_r set to "
-                                                        << lio_params_.ext_r[0] << " "
-                                                        << lio_params_.ext_r[1] << " "
-                                                        << lio_params_.ext_r[2] << " "
-                                                        << RESET);
-            RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "lio_builder.ext_t set to "
-                                                        << lio_params_.ext_t[0] << " "
-                                                        << lio_params_.ext_t[1] << " "
-                                                        << lio_params_.ext_t[2] << " "
-                                                        << RESET);
-        }
-        this->declare_parameter<bool>("lio_slam.imu_compensation", false);
-        this->get_parameter("lio_slam.imu_compensation", lio_params_.imu_compensation_);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "lio_slam.imu_compensation set to " << lio_params_.imu_compensation_ << RESET);
+        std::vector<double> pre_ext_r = {3.14, 0., 0.};
+        std::vector<double> pre_ext_t = {-0.0151, 0., 0.};
+        this->declare_parameter<std::vector<double>>("lio_slam.ext_r", pre_ext_r);
+        this->declare_parameter<std::vector<double>>("lio_slam.ext_t", pre_ext_t);
+        this->get_parameter("lio_slam.ext_r", lio_params_.ext_r);
+        this->get_parameter("lio_slam.ext_t", lio_params_.ext_t);
         this->declare_parameter<bool>("loop_closure.activate", false);
         this->declare_parameter<double>("loop_closure.rad_thresh", 0.4);
         this->declare_parameter<double>("loop_closure.dist_thresh", 2.5);
@@ -206,15 +125,6 @@ namespace IG_LIO
         this->get_parameter("loop_closure.submap_resolution", loop_closure_.mutableParams().submap_resolution);
         this->get_parameter("loop_closure.submap_search_num", loop_closure_.mutableParams().submap_search_num);
         this->get_parameter("loop_closure.loop_icp_thresh", loop_closure_.mutableParams().loop_icp_thresh);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "loop_closure.activate set to " << loop_closure_.mutableParams().activate << RESET);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "loop_closure.rad_thresh set to " << loop_closure_.mutableParams().rad_thresh << RESET);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "loop_closure.dist_thresh set to " << loop_closure_.mutableParams().dist_thresh << RESET);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "loop_closure.time_thresh set to " << loop_closure_.mutableParams().time_thresh << RESET);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "loop_closure.loop_pose_search_radius set to " << loop_closure_.mutableParams().loop_pose_search_radius << RESET);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "loop_closure.loop_pose_index_thresh set to " << loop_closure_.mutableParams().loop_pose_index_thresh << RESET);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "loop_closure.submap_resolution set to " << loop_closure_.mutableParams().submap_resolution << RESET);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "loop_closure.submap_search_num set to " << loop_closure_.mutableParams().submap_search_num << RESET);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "loop_closure.loop_icp_thresh set to " << loop_closure_.mutableParams().loop_icp_thresh << RESET);
         this->declare_parameter<double>("localizer.refine_resolution", 0.15);
         this->declare_parameter<double>("localizer.rough_resolution", 0.3);
         this->declare_parameter<double>("localizer.refine_iter", 5.);
@@ -231,41 +141,19 @@ namespace IG_LIO
         this->get_parameter("localizer.xy_offset", localizer_params_.xy_offset);
         this->get_parameter("localizer.yaw_offset", localizer_params_.yaw_offset);
         this->get_parameter("localizer.yaw_resolution", localizer_params_.yaw_resolution);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "localizer.refine_resolution set to " << localizer_params_.refine_resolution << RESET);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "localizer.rough_resolution set to " << localizer_params_.rough_resolution << RESET);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "localizer.refine_iter set to " << localizer_params_.refine_iter << RESET);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "localizer.rough_iter set to " << localizer_params_.rough_iter << RESET);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "localizer.thresh set to " << localizer_params_.thresh << RESET);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "localizer.xy_offset set to " << localizer_params_.xy_offset << RESET);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "localizer.yaw_offset set to " << localizer_params_.yaw_offset << RESET);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "localizer.yaw_resolution set to " << localizer_params_.yaw_resolution << RESET);
         this->declare_parameter<bool>("localizer.reloc_on_init", false);
         this->declare_parameter<std::string>("localizer.pcd_path", "");
+        std::vector<double> pre_xyz_rpy = {0., 0., 0., 0., 0., 0.};
+        this->declare_parameter<std::vector<double>>("localizer.xyz_rpy", pre_xyz_rpy);
         this->get_parameter("localizer.reloc_on_init", localizer_reloc_on_init);
         this->get_parameter("localizer.pcd_path", localizer_pcd_path);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "localizer.reloc_on_init set to " << localizer_reloc_on_init << RESET);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "localizer.pcd_path set to " << localizer_pcd_path << RESET);
-        {
-            std::vector<double> pre_xyz_rpy = {0., 0., 0., 0., 0., 0.};
-            this->declare_parameter<std::vector<double>>("localizer.xyz_rpy", pre_xyz_rpy);
-            this->get_parameter("localizer.xyz_rpy", localizer_xyz_rpy);
-            RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "localizer.xyz_rpy set to "
-                                                        << localizer_xyz_rpy[0] << " "
-                                                        << localizer_xyz_rpy[1] << " "
-                                                        << localizer_xyz_rpy[2] << " "
-                                                        << localizer_xyz_rpy[3] << " "
-                                                        << localizer_xyz_rpy[4] << " "
-                                                        << localizer_xyz_rpy[5] << " "
-                                                        << RESET);
-        }
+        this->get_parameter("localizer.xyz_rpy", localizer_xyz_rpy);
     }
 
     void MapBuilderNode::initSubscribers()
     {
-        imu_sub_ = this->create_subscription<sensor_msgs::msg::Imu>(imu_data_.topic, rclcpp::QoS(400).reliable().keep_last(1), std::bind(&MapBuilderNode::imuCallbackGroup, this, _1));
+        imu_sub_ = this->create_subscription<sensor_msgs::msg::Imu>(imu_data_.topic, rclcpp::QoS(400).reliable().keep_last(1), std::bind(&ImuData::callback, &imu_data_, _1));
         livox_sub_ = this->create_subscription<livox_ros_driver2::msg::CustomMsg>(livox_data_.topic, rclcpp::QoS(20).reliable().keep_last(1), std::bind(&LivoxData::callback, &livox_data_, _1));
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "imu data subscribe from " << imu_data_.topic << RESET);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "livox pointcloud data subscribe from " << livox_data_.topic << RESET);
     }
 
     void MapBuilderNode::initPublishers()
@@ -273,27 +161,10 @@ namespace IG_LIO
         local_cloud_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("local_cloud", rclcpp::QoS(10).transient_local().keep_last(1));
         body_cloud_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("body_cloud", rclcpp::QoS(10).transient_local().keep_last(1));
         map_cloud_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("map_cloud", rclcpp::QoS(10).transient_local().keep_last(1));
-        slam_cloud_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("slam_cloud", rclcpp::QoS(10).transient_local().keep_last(1));
-        odom_pub_ = this->create_publisher<nav_msgs::msg::Odometry>("odom", rclcpp::QoS(200).transient_local().keep_last(1));
+        odom_pub_ = this->create_publisher<nav_msgs::msg::Odometry>("slam_odom", rclcpp::QoS(10).transient_local().keep_last(1));
         loop_mark_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("loop_mark", rclcpp::QoS(10).transient_local().keep_last(1));
         local_path_pub_ = this->create_publisher<nav_msgs::msg::Path>("local_path", rclcpp::QoS(10).transient_local().keep_last(1));
         global_path_pub_ = this->create_publisher<nav_msgs::msg::Path>("global_path", rclcpp::QoS(10).transient_local().keep_last(1));
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "local cloud publish to "
-                                                    << "local_cloud" << RESET);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "body cloud data publish to "
-                                                    << "body_cloud" << RESET);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "map cloud data publish to "
-                                                    << "map_cloud" << RESET);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "slam cloud data publish to "
-                                                    << "slam_cloud" << RESET);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "odom data publish to "
-                                                    << "odom" << RESET);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "loop mark publish to "
-                                                    << "loop_mark" << RESET);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "local path publish to "
-                                                    << "local_path" << RESET);
-        RCLCPP_INFO_STREAM(this->get_logger(), CYAN << "global path publish to "
-                                                    << "global_path" << RESET);
     }
 
     void MapBuilderNode::initSerivces()
@@ -327,11 +198,8 @@ namespace IG_LIO
         localizer_loop_.setSharedDate(shared_data_);
         localizer_loop_.setLocalizer(icp_localizer_);
         localizer_thread_ = std::make_shared<std::thread>(std::ref(localizer_loop_));
-
         f = std::bind(&MapBuilderNode::run, this);
-
         publishBaseLink();
-
         if (localizer_reloc_on_init)
         {
             std::shared_ptr<ig_lio_c_msgs::srv::ReLoc_Request> request(new ig_lio_c_msgs::srv::ReLoc_Request);
@@ -343,6 +211,7 @@ namespace IG_LIO
             request->pitch = localizer_xyz_rpy[4];
             request->yaw = localizer_xyz_rpy[5];
             localizer_response = this->Reloc_Client->async_send_request(request);
+            std::cout << "Waiting for localizer response..." << std::endl;
         }
     }
 
@@ -351,11 +220,9 @@ namespace IG_LIO
         offset_rot_ = Eigen::Matrix3d::Identity();
         offset_pos_ = Eigen::Vector3d::Zero();
         {
-            std::lock_guard<std::mutex> lck(shared_data_->mutex);
+            std::lock_guard<std::mutex> lock(shared_data_->mutex);
             shared_data_->offset_rot = Eigen::Matrix3d::Identity();
             shared_data_->offset_pos = Eigen::Vector3d::Zero();
-            shared_data_->offset_rot_loc = Eigen::Matrix3d::Identity();
-            shared_data_->offset_pos_loc = Eigen::Vector3d::Zero();
             shared_data_->localizer_service_success = false;
         }
         lio_builder_->reset();
@@ -372,106 +239,54 @@ namespace IG_LIO
             {
                 std::shared_ptr<ig_lio_c_msgs::srv::ReLoc_Response> response = localizer_response.get();
                 localizer_reloc_on_init = false;
-                RCLCPP_INFO_STREAM(this->get_logger(), CYAN << response->message.c_str() << RESET);
+                RCLCPP_WARN(this->get_logger(), "!");
+                RCLCPP_INFO(this->get_logger(), response->message.c_str());
             }
             else if (status == std::future_status::timeout)
             {
-                RCLCPP_WARN_STREAM(this->get_logger(), YELLOW << "RELOC CALL FAILED !" << RESET);
-                localizer_reloc_on_init = false;
+                RCLCPP_WARN(this->get_logger(), "RELOC CALL FAILED !");
+                //localizer_reloc_on_init = false;
             }
         }
         if (!measure_group_.syncPackage(imu_data_, livox_data_))
-        {
-            if (lio_params_.imu_compensation_ &&
-                lio_builder_->currentStatus() == IG_LIO::Status::MAPPING)
-            {
-                std::shared_ptr<IG_LIO::PiontIMU> pointIMU = lio_builder_->getPointIMU();
-                if (pointIMU->checkImuPushed())
-                {
-                    Eigen::Matrix3d rot_with_imu = pointIMU->getRot();
-                    Eigen::Vector3d pos_with_imu = pointIMU->getPos();
-                    double imu_time = pointIMU->getLastIMUT();
-                    br_->sendTransform(std::move(eigen2Transform(rot_with_imu,
-                                                                 pos_with_imu,
-                                                                 local_frame_,
-                                                                 body_frame_,
-                                                                 imu_time)));
-                    publishOdom(eigen2Odometry(rot_with_imu,
-                                               pos_with_imu,
-                                               local_frame_,
-                                               body_frame_,
-                                               imu_time));
-                    pointIMU->confirmCost();
-                }
-            }
             return;
-        }
         if (shared_data_->halt_flag)
             return;
         if (shared_data_->reset_flag)
         {
-            RCLCPP_WARN_STREAM(this->get_logger(), YELLOW << "SYSTEM RESET!" << RESET);
+            RCLCPP_WARN(this->get_logger(), "SYSTEM RESET!");
             systemReset();
-            std::lock_guard<std::mutex> lck(shared_data_->service_mutex);
+            shared_data_->service_mutex.lock();
             shared_data_->reset_flag = false;
+            shared_data_->service_mutex.unlock();
         }
+        //建图
         lio_builder_->mapping(measure_group_);
         if (lio_builder_->currentStatus() == IG_LIO::Status::INITIALIZE)
             return;
         current_time_ = measure_group_.lidar_time_end;
         current_state_ = lio_builder_->currentState();
-        // RCLCPP_INFO_STREAM(this->get_logger(), MAGENTA << " ba: " << current_state_.ba.transpose()
-        //                                                << " ba_norm: " << current_state_.ba.norm()
-        //                                                << " bg: " << current_state_.bg.transpose() * 180.0 / M_PI
-        //                                                << " bg_norm: " << current_state_.bg.norm() * 180.0 / M_PI << RESET);
+        //RCLCPP_INFO_STREAM(this->get_logger(), "ba: " << current_state_.ba.transpose() << " ba_norm: " << current_state_.ba.norm() << " bg: " << current_state_.bg.transpose() * 180.0 / M_PI << " bg_norm: " << current_state_.bg.norm() * 180.0 / M_PI);
         current_cloud_body_ = lio_builder_->cloudUndistortedBody();
-        if (publish_slam_cloud_)
         {
-            IG_LIO::PointCloudXYZI::Ptr slam_cloud_(new IG_LIO::PointCloudXYZI);
-            {
-                std::lock_guard<std::mutex> lck(shared_data_->mutex);
-                size_t num_poses_to_copy = std::min(max_slam_cloud_num_, int(shared_data_->key_poses.size()));
-                for (size_t i = 0; i < num_poses_to_copy; ++i)
-                {
-                    const auto &p = shared_data_->key_poses[shared_data_->key_poses.size() - i - 1];
-                    IG_LIO::PointCloudXYZI::Ptr temp_cloud(new IG_LIO::PointCloudXYZI);
-
-                    pcl::transformPointCloud(*shared_data_->cloud_history[p.index],
-                                             *temp_cloud,
-                                             p.global_pos,
-                                             Eigen::Quaterniond(p.global_rot));
-
-                    *slam_cloud_ += *temp_cloud;
-                }
-            }
-            publishSlamCloud(pcl2msg(slam_cloud_,
-                                     global_frame_,
-                                     current_time_));
-        }
-        {
-            std::lock_guard<std::mutex> lck(shared_data_->mutex);
+            std::lock_guard<std::mutex> lock(shared_data_->mutex);
             shared_data_->local_rot = current_state_.rot;
             shared_data_->local_pos = current_state_.pos;
             shared_data_->cloud = current_cloud_body_;
-            offset_rot_ = shared_data_->offset_rot_loc * shared_data_->offset_rot;
-            offset_pos_ = shared_data_->offset_pos_loc + shared_data_->offset_rot_loc * shared_data_->offset_pos;
+            offset_rot_ = shared_data_->offset_rot;
+            offset_pos_ = shared_data_->offset_pos;
             shared_data_->pose_updated = true;
         }
-        if (current_state_.bg.norm() * 180.0 / M_PI > 1.0)
-        {
-            RCLCPP_WARN_STREAM(this->get_logger(), YELLOW << "bg_norm too large, jump map process!" << RESET);
-            return;
-        }
-        br_->sendTransform(std::move(eigen2Transform(offset_rot_,
-                                                     offset_pos_,
-                                                     global_frame_,
-                                                     local_frame_,
-                                                     current_time_)));
-        br_->sendTransform(std::move(eigen2Transform(current_state_.rot,
-                                                     current_state_.pos,
-                                                     local_frame_,
-                                                     body_frame_,
-                                                     current_time_)));
+        br_->sendTransform(eigen2Transform(shared_data_->offset_rot,
+                                           shared_data_->offset_pos,
+                                           global_frame_,
+                                           local_frame_,
+                                           current_time_));
+        br_->sendTransform(eigen2Transform(current_state_.rot,
+                                           current_state_.pos,
+                                           local_frame_,
+                                           body_frame_,
+                                           current_time_));
 
         publishOdom(eigen2Odometry(current_state_.rot,
                                    current_state_.pos,
@@ -481,7 +296,7 @@ namespace IG_LIO
 
         addKeyPose();
 
-        publishBodyCloud(pcl2msg(current_cloud_body_,
+        publishBodyCloud(pcl2msg(lio_builder_->cloudUndistortedBody(),
                                  body_frame_,
                                  current_time_));
         publishLocalCloud(pcl2msg(lio_builder_->cloudWorld(),
@@ -514,7 +329,7 @@ namespace IG_LIO
         int idx = shared_data_->key_poses.size();
         if (shared_data_->key_poses.empty())
         {
-            std::lock_guard<std::mutex> lck(shared_data_->mutex);
+            std::lock_guard<std::mutex> lock(shared_data_->mutex);
             shared_data_->key_poses.emplace_back(idx, current_time_, current_state_.rot, current_state_.pos);
             shared_data_->key_poses.back().addOffset(shared_data_->offset_rot, shared_data_->offset_pos);
             shared_data_->key_pose_added = true;
@@ -530,7 +345,7 @@ namespace IG_LIO
             std::abs(rpy(1)) > loop_closure_.mutableParams().rad_thresh ||
             std::abs(rpy(2)) > loop_closure_.mutableParams().rad_thresh)
         {
-            std::lock_guard<std::mutex> lck(shared_data_->mutex);
+            std::lock_guard<std::mutex> lock(shared_data_->mutex);
             shared_data_->key_poses.emplace_back(idx, current_time_, current_state_.rot, current_state_.pos);
             shared_data_->key_poses.back().addOffset(shared_data_->offset_rot, shared_data_->offset_pos);
             shared_data_->key_pose_added = true;
@@ -538,30 +353,33 @@ namespace IG_LIO
         }
     }
 
-    void MapBuilderNode::publishBodyCloud(const sensor_msgs::msg::PointCloud2 &cloud_to_pub)
+    void MapBuilderNode::publishBodyCloud(sensor_msgs::msg::PointCloud2 cloud_to_pub)
     {
         if (body_cloud_pub_->get_subscription_count() == 0)
             return;
-        body_cloud_pub_->publish(std::move(cloud_to_pub));
+            pcl::PointCloud<pcl::PointXYZI>::Ptr pcl_cloud(new pcl::PointCloud<pcl::PointXYZI>);
+            pcl::fromROSMsg(cloud_to_pub, *pcl_cloud);
+            pcl::StatisticalOutlierRemoval<pcl::PointXYZI> sort;
+            sort.setInputCloud(pcl_cloud);
+            sort.setMeanK(50);
+            sort.setStddevMulThresh(1.5);
+            sort.filter(*pcl_cloud);
+            pcl::toROSMsg(*pcl_cloud, cloud_to_pub);
+            body_cloud_pub_->publish(cloud_to_pub);
     }
+    
 
     void MapBuilderNode::publishMapCloud(const sensor_msgs::msg::PointCloud2 &cloud_to_pub)
     {
         if (map_cloud_pub_->get_subscription_count() == 0)
             return;
-        map_cloud_pub_->publish(std::move(cloud_to_pub));
+        map_cloud_pub_->publish(cloud_to_pub);
     }
 
     void MapBuilderNode::publishLocalCloud(const sensor_msgs::msg::PointCloud2 &cloud_to_pub)
     {
         if (local_cloud_pub_->get_subscription_count() != 0)
-            local_cloud_pub_->publish(std::move(cloud_to_pub));
-    }
-
-    void MapBuilderNode::publishSlamCloud(const sensor_msgs::msg::PointCloud2 &cloud_to_pub)
-    {
-        if (slam_cloud_pub_->get_subscription_count() != 0)
-            slam_cloud_pub_->publish(std::move(cloud_to_pub));
+            local_cloud_pub_->publish(cloud_to_pub);
     }
 
     void MapBuilderNode::publishBaseLink()
@@ -587,14 +405,14 @@ namespace IG_LIO
         transform.transform.rotation.x = q.x();
         transform.transform.rotation.y = q.y();
         transform.transform.rotation.z = q.z();
-        static_br_->sendTransform(std::move(transform));
+        static_br_->sendTransform(transform);
     }
 
     void MapBuilderNode::publishOdom(const nav_msgs::msg::Odometry &odom_to_pub)
     {
         if (odom_pub_->get_subscription_count() == 0)
             return;
-        odom_pub_->publish(std::move(odom_to_pub));
+        odom_pub_->publish(odom_to_pub);
     }
 
     void MapBuilderNode::publishLocalPath()
@@ -623,7 +441,7 @@ namespace IG_LIO
             pose.pose.orientation.w = q.w();
             path.poses.push_back(pose);
         }
-        local_path_pub_->publish(std::move(path));
+        local_path_pub_->publish(path);
     }
 
     void MapBuilderNode::publishGlobalPath()
@@ -651,7 +469,7 @@ namespace IG_LIO
             pose.pose.orientation.w = q.w();
             path.poses.push_back(pose);
         }
-        global_path_pub_->publish(std::move(path));
+        global_path_pub_->publish(path);
     }
 
     void MapBuilderNode::publishLoopMark()
@@ -662,6 +480,7 @@ namespace IG_LIO
             return;
         visualization_msgs::msg::MarkerArray marker_array;
         visualization_msgs::msg::Marker nodes_marker;
+
         nodes_marker.header.frame_id = global_frame_;
         nodes_marker.header.stamp = rclcpp::Time(static_cast<uint64_t>(current_time_ * 1e9));
         nodes_marker.ns = "loop_nodes";
@@ -669,9 +488,9 @@ namespace IG_LIO
         nodes_marker.type = visualization_msgs::msg::Marker::SPHERE_LIST;
         nodes_marker.action = visualization_msgs::msg::Marker::ADD;
         nodes_marker.pose.orientation.w = 1.0;
-        nodes_marker.scale.x = 0.05;
-        nodes_marker.scale.y = 0.05;
-        nodes_marker.scale.z = 0.05;
+        nodes_marker.scale.x = 0.1;
+        nodes_marker.scale.y = 0.1;
+        nodes_marker.scale.z = 0.1;
         nodes_marker.color.r = 1.0;
         nodes_marker.color.g = 0.8;
         nodes_marker.color.b = 0.0;
@@ -686,11 +505,11 @@ namespace IG_LIO
         edges_marker.action = visualization_msgs::msg::Marker::ADD;
         edges_marker.pose.orientation.w = 1.0;
         edges_marker.scale.x = 0.05;
+
         edges_marker.color.r = 0.0;
         edges_marker.color.g = 0.8;
         edges_marker.color.b = 0.0;
         edges_marker.color.a = 1.0;
-
         for (auto &p : shared_data_->loop_history)
         {
             Pose6D &p1 = shared_data_->key_poses[p.first];
@@ -710,16 +529,7 @@ namespace IG_LIO
         }
         marker_array.markers.push_back(nodes_marker);
         marker_array.markers.push_back(edges_marker);
-        loop_mark_pub_->publish(std::move(marker_array));
-    }
-
-    void MapBuilderNode::imuCallbackGroup(const sensor_msgs::msg::Imu::SharedPtr msg)
-    {
-        imu_data_.callback(msg);
-        if (lio_params_.imu_compensation_)
-        {
-            lio_builder_->calcIMUCompensation(imu_data_.buffer.back());
-        }
+        loop_mark_pub_->publish(marker_array);
     }
 
     void MapBuilderNode::saveMapCallBack(const ig_lio_c_msgs::srv::SaveMap::Request::SharedPtr request,
@@ -729,32 +539,29 @@ namespace IG_LIO
         int cnt = 1;
         octomap::MapUpdater map_updater(ament_index_cpp::get_package_share_directory("ig_lio_c") + "/config/" + dynamic_point_cloud_removal_config_);
         IG_LIO::PointCloudXYZI::Ptr cloud(new IG_LIO::PointCloudXYZI);
+        for (Pose6D &p : shared_data_->key_poses)
         {
-            std::lock_guard<std::mutex> lck(shared_data_->mutex);
-            for (Pose6D &p : shared_data_->key_poses)
+            map_updater.timing.start(" One Scan Cost  ");
+            IG_LIO::PointCloudXYZI::Ptr temp_cloud(new IG_LIO::PointCloudXYZI);
+            pcl::transformPointCloud(*shared_data_->cloud_history[p.index],
+                                     *temp_cloud,
+                                     p.global_pos,
+                                     Eigen::Quaterniond(p.global_rot));
+            if (cnt > 1 && !map_updater.getCfg().verbose_)
             {
-                map_updater.timing.start(" One Scan Cost  ");
-                IG_LIO::PointCloudXYZI::Ptr temp_cloud(new IG_LIO::PointCloudXYZI);
-                pcl::transformPointCloud(*shared_data_->cloud_history[p.index],
-                                         *temp_cloud,
-                                         p.global_pos,
-                                         Eigen::Quaterniond(p.global_rot));
-                if (cnt > 1 && !map_updater.getCfg().verbose_)
-                {
-                    std::ostringstream log_msg;
-                    log_msg << "( Processing:" << cnt << ")"
-                            << " Time Cost: "
-                            << map_updater.timing.lastSeconds(" One Scan Cost  ") << "s";
-                    std::string spaces(10, ' ');
-                    log_msg << spaces;
-                    RCLCPP_INFO_STREAM(this->get_logger(), CYAN << log_msg.str().c_str() << RESET);
-                }
-                pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_xyz(new pcl::PointCloud<pcl::PointXYZ>());
-                pcl::copyPointCloud(*temp_cloud, *cloud_xyz);
-                map_updater.run(cloud_xyz);
-                map_updater.timing.stop(" One Scan Cost  ");
-                cnt++;
+                std::ostringstream log_msg;
+                log_msg << "( Processing:" << cnt << ")"
+                        << " Time Cost: "
+                        << map_updater.timing.lastSeconds(" One Scan Cost  ") << "s";
+                std::string spaces(10, ' ');
+                log_msg << spaces;
+                RCLCPP_INFO(this->get_logger(), log_msg.str().c_str());
             }
+            pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_xyz(new pcl::PointCloud<pcl::PointXYZ>());
+            pcl::copyPointCloud(*temp_cloud, *cloud_xyz);
+            map_updater.run(cloud_xyz);
+            map_updater.timing.stop(" One Scan Cost  ");
+            cnt++;
         }
         map_updater.timing.start("4. Query & Write");
         std::string output_file;
@@ -765,11 +572,11 @@ namespace IG_LIO
         else
             output_file = "octomap";
         auto static_cloud = map_updater.getRawMap();
-        if (static_cloud->empty())
+         if (static_cloud->empty())
         {
             response->status = false;
             response->message = "Empty cloud!";
-            RCLCPP_ERROR_STREAM(this->get_logger(), RED << "Failed to save map !" << RESET);
+            RCLCPP_WARN(this->get_logger(), "Failed to save map !");
         }
         pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_SOR_filtered(new pcl::PointCloud<pcl::PointXYZ>);
         pcl::StatisticalOutlierRemoval<pcl::PointXYZ> sor;
@@ -801,7 +608,7 @@ namespace IG_LIO
         }
         response->status = 1;
         response->message = "Success to save map !";
-        RCLCPP_INFO_STREAM(this->get_logger(), GREEN << "Success to save map !" << RESET);
+        RCLCPP_INFO(this->get_logger(), "Success to save map !");
     }
 
     void MapBuilderNode::relocCallback(const ig_lio_c_msgs::srv::ReLoc::Request::SharedPtr request,
@@ -819,7 +626,7 @@ namespace IG_LIO
         Eigen::AngleAxisf yawAngle(yaw, Eigen::Vector3f::UnitZ());
         Eigen::Quaternionf q = rollAngle * pitchAngle * yawAngle;
         {
-            std::lock_guard<std::mutex> lck(shared_data_->service_mutex);
+            std::lock_guard<std::mutex> lock(shared_data_->service_mutex);
             shared_data_->halt_flag = false;
             shared_data_->localizer_service_called = true;
             shared_data_->localizer_activate = true;
@@ -836,17 +643,8 @@ bool terminate_flag = false;
 
 void signalHandler(int signum)
 {
-    switch (signum)
-    {
-    case SIGALRM:
-        break;
-    case SIGINT:
-        std::cout << RED << "SHUTTING DOWN MAPPING NODE!" << RESET << std::endl;
-        terminate_flag = true;
-        break;
-    default:
-        break;
-    }
+    std::cout << "SHUTTING DOWN MAPPING NODE!" << std::endl;
+    terminate_flag = true;
 }
 
 int main(int argc, char **argv)
