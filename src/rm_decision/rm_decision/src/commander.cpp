@@ -91,7 +91,7 @@ namespace rm_decision
 
    // 处理信息线程(设置状态）(now using behave tree)
    void Commander::decision(){
-        rclcpp::Rate r(5);
+        rclcpp::Rate r(0.5);
         // behavetree init
         BT::BehaviorTreeFactory factory;
         factory.registerSimpleCondition("wait_for_start", std::bind(&Commander::wait_for_start, this));
@@ -415,7 +415,7 @@ namespace rm_decision
    //振荡模式
    void MoveState::handle() {
        if (commander->move_points_.empty()) {
-           commander->move_points_ = generateRandomPoints( 10, 1.0);
+           commander->move_points_ = commander->generateRandomPoints(10, 1.0);
            commander->move = commander->move_points_.begin();
        }
 
@@ -498,10 +498,10 @@ namespace rm_decision
         for (int i = 0; i < num_points; ++i) {
             geometry_msgs::msg::PoseStamped point;
             point.header.frame_id = "map";
-            point.pose.position.x = current_pose.pose.position.x + dis(gen);
-            point.pose.position.y = current_pose.pose.position.y + dis(gen);
-            point.pose.position.z = current_pose.pose.position.z;
-            point.pose.orientation = current_pose.pose.orientation;
+            point.pose.position.x = currentpose.pose.position.x + dis(gen);
+            point.pose.position.y = currentpose.pose.position.y + dis(gen);
+            point.pose.position.z = currentpose.pose.position.z;
+            point.pose.orientation = currentpose.pose.orientation;
             points.push_back(point);
         }
 

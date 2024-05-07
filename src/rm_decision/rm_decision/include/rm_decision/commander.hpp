@@ -164,7 +164,7 @@ public:
 
   void getcurrentpose();
 
-  std::vector<geometry_msgs::msg::PoseStamped> generateRandomPoints(geometry_msgs::msg::PoseStamped current_pose, int num_points, double radius) ;
+  std::vector<geometry_msgs::msg::PoseStamped> generateRandomPoints(int num_points, double radius) ;
 
   // double timer();
 

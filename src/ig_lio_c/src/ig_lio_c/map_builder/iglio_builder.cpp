@@ -92,7 +92,7 @@ namespace IG_LIO
 
     void IGLIOBuilder::sharedUpdateFunc(IG_LIO::State &state, IG_LIO::SharedState &shared_state)
     {
-        if (key_frame_count_ >= 20)
+        if (key_frame_count_ >= 50)
         {
             gicpConstraint(state, shared_state);
         }

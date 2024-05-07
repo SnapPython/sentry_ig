@@ -17,7 +17,7 @@ def generate_launch_description():
             parameters=[{
                 'target_frame': 'livox_frame',
                 'transform_tolerance': 0.01,
-                'min_height': -0.40,
+                'min_height': -0.50,
                 'max_height': 0.1,
                 'angle_min': -3.14159,# -M_PI/2 #0.39269875
                 'angle_max': 3.14159,  # M_PI/2
