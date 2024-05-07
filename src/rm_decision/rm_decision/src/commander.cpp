@@ -414,14 +414,19 @@ namespace rm_decision
    
    //振荡模式
    void MoveState::handle() {
-      if(commander->checkgoal){
-         commander->nav_to_pose(*commander->move);
-         commander->move++;
-         if(commander->move == commander->move_points_.end()){
-            commander->move = commander->move_points_.begin();
-         }
-         commander->checkgoal = false;
-      }
+       if (commander->move_points_.empty()) {
+           commander->move_points_ = generateRandomPoints( 10, 1.0);
+           commander->move = commander->move_points_.begin();
+       }
+
+       if (commander->checkgoal) {
+           commander->nav_to_pose(*commander->move);
+           commander->move++;
+           if (commander->move == commander->move_points_.end()) {
+               commander->move = commander->move_points_.begin();
+           }
+           commander->checkgoal = false;
+       }
    }
 
    void CjState::handle() {
@@ -480,6 +485,28 @@ namespace rm_decision
       currentpose.pose.orientation = odom_msg.transform.rotation;
       RCLCPP_INFO(this->get_logger(), "当前位置: %.2f, %.2f, %.2f",currentpose.pose.position.x,currentpose.pose.position.y,currentpose.pose.position.z);
    }
+
+
+    // 生成随机点
+    std::vector<geometry_msgs::msg::PoseStamped> Commander::generateRandomPoints(int num_points, double radius) {
+        getcurrentpose();
+        std::vector<geometry_msgs::msg::PoseStamped> points;
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_real_distribution<> dis(-radius, radius);
+
+        for (int i = 0; i < num_points; ++i) {
+            geometry_msgs::msg::PoseStamped point;
+            point.header.frame_id = "map";
+            point.pose.position.x = current_pose.pose.position.x + dis(gen);
+            point.pose.position.y = current_pose.pose.position.y + dis(gen);
+            point.pose.position.z = current_pose.pose.position.z;
+            point.pose.orientation = current_pose.pose.orientation;
+            points.push_back(point);
+        }
+
+        return points;
+    }
 
 } // namespace rm_decision
 #include "rclcpp_components/register_node_macro.hpp"

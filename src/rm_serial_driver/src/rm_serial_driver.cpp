@@ -15,6 +15,8 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <bitset>
+
 
 #include "rm_serial_driver/crc.hpp"
 #include "rm_serial_driver/packet.hpp"
@@ -241,6 +243,8 @@ void RMSerialDriver::decisionSendData(const rm_decision_interfaces::msg::ToSeria
 {
     sendpacket.header = 0xA5;
     sendpacket.sentry_cmd = msg->sentry_cmd;
+    std::bitset<32> binary(sendpacket.sentry_cmd);
+    std::cout << binary << std::endl;
     
     //crc16::Append_CRC16_Check_Sum(reinterpret_cast<uint8_t *>(&packet), sizeof(packet));
 }
